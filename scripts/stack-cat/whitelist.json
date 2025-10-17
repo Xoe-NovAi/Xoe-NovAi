@@ -1,0 +1,16 @@
+{
+  "allowed_roots": [
+    "stack-cat/stack-cat_v012.sh",
+    "docker-compose.yml",
+    ".env"
+  ],
+  "allowed_dirs": [
+    "app/XNAi_rag_app",
+    "scripts"
+  ],
+  "excluded_extensions": [
+    ".md",
+    ".log"
+  ]
+}
+

@@ -1,0 +1,89 @@
+# Xoe-NovAi Phase 1 v0.1.2 rev_1.4 - Docker Ignore File
+# Guide Reference: Section 6 (Docker Configuration)
+# Purpose: Exclude sensitive, build, and runtime data from Docker builds
+# Last Updated: 2025-10-13
+
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Runtime data (not in images)
+data/
+backups/
+logs/
+library/
+knowledge/
+models/
+embeddings/
+
+# Docker
+.dockerignore
+Dockerfile*
+.dockerignore
+docker-compose.override.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# Git
+.git/
+.gitignore
+
+# Security scans
+bandit.yaml
+snyk.yaml
+
+# CI/CD
+.github/workflows/
+!.github/workflows/ci.yml
+!.github/workflows/dependabot.yml
+!.github/workflows/snyk.yml

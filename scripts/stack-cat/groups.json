@@ -1,0 +1,40 @@
+{
+  "default": {
+    "description": "Full core stack",
+    "files": [
+      "Dockerfile*",
+      "docker-compose.yml",
+      "requirements.txt",
+      "main.py",
+      "app/**/*.py",
+      "app/**/*.sh",
+      "app/**/*.yml",
+      "configs/**/*.yml",
+      "scripts/**/*.sh"
+    ]
+  },
+  "api": {
+    "description": "API backend only",
+    "files": [
+      "Dockerfile.api",
+      "app/api/**/*.py",
+      "main.py"
+    ]
+  },
+  "rag": {
+    "description": "RAG subsystem",
+    "files": [
+      "app/XNAi_rag_app/**/*.py",
+      "app/XNAi_rag_app/**/*.yaml",
+      "configs/rag/*.yml"
+    ]
+  },
+  "frontend": {
+    "description": "Frontend build chain",
+    "files": [
+      "Dockerfile.frontend",
+      "app/frontend/**/*",
+      "package*.json"
+    ]
+  }
+}
