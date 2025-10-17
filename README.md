@@ -1,4 +1,4 @@
-# Xoe-NovAi: Local Polymath AI Stack
+# Xoe-NovAi: Advanced, Multi Model, Self-learning, CPU Optimized RAG Stack - Vectors, SSE, Redis, Llama-Cpp-Python, Qdrant, Chainlit - Up-to-Date Deps
 
 ![Xoe-NovAi Logo](LOGO.svg) <!-- Placeholder; replace with actual logo file once designed -->
 
