@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.1 - FastAPI RAG Service (PRODUCTION-READY)
+# Xoe-NovAi Phase 1 v0.1.2 - FastAPI RAG Service (PRODUCTION-READY)
 # ============================================================================
 # Purpose: Main FastAPI application with streaming RAG capabilities
 # Guide Reference: Section 4.1 (Complete main.py Implementation)
-# Last Updated: 2025-10-11
+# Last Updated: 2025-10-18
+# CRITICAL FIX: Added import path resolution (lines 31-33)
 # Features:
 #   - SSE streaming for real-time responses
 #   - Context truncation (<6GB memory target)
@@ -22,6 +23,11 @@ import logging
 import asyncio
 from typing import Optional, List, Dict, Any, AsyncGenerator
 from contextlib import asynccontextmanager
+
+# CRITICAL FIX: Import path resolution
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
 
 # FastAPI
 from fastapi import FastAPI, Request, HTTPException
@@ -292,7 +298,7 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     logger.info("=" * 70)
-    logger.info("Starting Xoe-NovAi RAG API v0.1.1")
+    logger.info("Starting Xoe-NovAi RAG API v0.1.2")
     logger.info("=" * 70)
     
     # Start metrics server
@@ -447,12 +453,12 @@ async def health_check():
     """
     Health check endpoint with integrated healthcheck.py results.
     
-    Guide Reference: Section 5.1 (rev_1.3 - Integrated Health Checks)
+    Guide Reference: Section 5.1 (Integrated Health Checks)
     
     Returns:
         Health status with component information
     """
-    # Import healthcheck functions (rev_1.3)
+    # Import healthcheck functions
     try:
         from healthcheck import run_health_checks
         ERROR_RECOVERY_ENABLED = os.getenv("ERROR_RECOVERY_ENABLED", "true").lower() == "true"
@@ -470,7 +476,7 @@ async def health_check():
         "llm": llm is not None,
     }
     
-    # Run healthcheck.py checks if available (rev_1.3)
+    # Run healthcheck.py checks if available
     if run_health_checks and ERROR_RECOVERY_ENABLED:
         try:
             # Run subset of checks (non-blocking)
