@@ -1,4 +1,4 @@
-============================================================================
+# ============================================================================
 # Xoe-NovAi Phase 1 v0.1.2 Application Configuration
 # ============================================================================
 # Purpose: Centralized application-level settings (complements .env runtime)
@@ -8,18 +8,20 @@
 # Last Updated: 2025-10-18
 # Sections: 22 total (removed [entrypoints] in v0.1.2)
 # ============================================================================
-============================================================================
-[metadata] - Stack Identity
-============================================================================
+
+# ============================================================================
+# [metadata] - Stack Identity
+# ============================================================================
 [metadata]
 stack_version = "v0.1.2"
 release_date = "2025-10-18"
 codename = "Polymath Foundation"
 description = "CPU-optimized local AI RAG stack with CrawlModule v0.1.7"
 architecture = "streaming-first, zero-telemetry, modular, library-curation"
-============================================================================
-[project] - Core Settings
-============================================================================
+
+# ============================================================================
+# [project] - Core Settings
+# ============================================================================
 [project]
 name = "Xoe-NovAi"
 phase = 1
@@ -27,9 +29,10 @@ telemetry_enabled = false
 privacy_mode = "local-only"
 data_sovereignty = true
 multi_agent_coordination = false
-============================================================================
-[models] - LLM & Embedding Specifications
-============================================================================
+
+# ============================================================================
+# [models] - LLM & Embedding Specifications
+# ============================================================================
 [models]
 llm_path = "/models/gemma-3-4b-it-UD-Q5_K_XL.gguf"
 llm_size_gb = 2.8
@@ -40,9 +43,10 @@ embedding_size_mb = 45
 embedding_dimensions = 384
 embedding_model_name = "sentence-transformers/all-MiniLM-L12-v2"
 embedding_device = "cpu"
-============================================================================
-[performance] - Resource Limits & Targets
-============================================================================
+
+# ============================================================================
+# [performance] - Resource Limits & Targets
+# ============================================================================
 [performance]
 token_rate_min = 15
 token_rate_target = 20
@@ -64,9 +68,10 @@ ingest_rate_target = 100
 ingest_rate_max = 200
 cache_hit_rate_target = 0.5
 crawl_rate_target = 50
-============================================================================
-[server] - FastAPI Configuration
-============================================================================
+
+# ============================================================================
+# [server] - FastAPI Configuration
+# ============================================================================
 [server]
 host = "0.0.0.0"
 port = 8000
@@ -77,9 +82,10 @@ cors_origins = ["http://localhost:8001", "http://127.0.0.1:8001", "http://ui:800
 retry_attempts = 3
 retry_backoff_factor = 2
 retry_max_wait_s = 10
-============================================================================
-[files] - Document Processing
-============================================================================
+
+# ============================================================================
+# [files] - Document Processing
+# ============================================================================
 [files]
 max_size_mb = 100
 accepted_types = ["md", "pdf", "txt"]
@@ -88,17 +94,19 @@ knowledge_path = "/knowledge"
 processing_timeout_s = 60
 chunk_size = 1000
 chunk_overlap = 200
-============================================================================
-[session] - Session Management
-============================================================================
+
+# ============================================================================
+# [session] - Session Management
+# ============================================================================
 [session]
 session_timeout_s = 3600
 max_concurrent_sessions = 10
 session_persist = true
 on_disk_payload = true
-============================================================================
-[security] - Non-Root Configuration
-============================================================================
+
+# ============================================================================
+# [security] - Non-Root Configuration
+# ============================================================================
 [security]
 non_root_uid = 1001
 non_root_gid = 1001
@@ -106,9 +114,10 @@ non_root_user = "appuser"
 drop_capabilities = "ALL"
 add_capabilities = ["SETGID", "SETUID", "CHOWN"]
 no_new_privileges = true
-============================================================================
-[chainlit] - Chainlit UI Configuration
-============================================================================
+
+# ============================================================================
+# [chainlit] - Chainlit UI Configuration
+# ============================================================================
 [chainlit]
 host = "0.0.0.0"
 port = 8001
@@ -119,9 +128,10 @@ async_enabled = true
 theme = "dark"
 commands_enabled = true
 session_persist = true
-============================================================================
-[redis] - Redis 7.4.1 Configuration
-============================================================================
+
+# ============================================================================
+# [redis] - Redis 7.4.1 Configuration
+# ============================================================================
 [redis]
 version = "7.4.1"
 host = "redis"
@@ -133,9 +143,11 @@ appendonly = true
 appendfsync = "everysec"
 maxmemory = "512mb"
 maxmemory_policy = "allkeys-lru"
+
 [redis.streams]
 coordination_stream = "xnai_coordination"
 max_len = 1000
+
 [redis.cache]
 enabled = true
 ttl_seconds = 3600
@@ -143,13 +155,14 @@ prefix = "xnai_cache"
 max_keys = 10000
 eviction_policy = "lru"
 warmup_queries = [
-"What is Xoe-NovAi?",
-"How do I get started?",
-"What are the features?"
+  "What is Xoe-NovAi?",
+  "How do I get started?",
+  "What are the features?"
 ]
-============================================================================
-[crawl] - CrawlModule v0.1.7 Configuration
-============================================================================
+
+# ============================================================================
+# [crawl] - CrawlModule v0.1.7 Configuration
+# ============================================================================
 [crawl]
 enabled = true
 version = "0.1.7"
@@ -159,22 +172,26 @@ sanitize_scripts = true
 max_items = 50
 cache_ttl = 86400
 user_agent = "Xoe-NovAi-CrawlModule/0.1.7"
+
 [crawl.sources]
 gutenberg = { enabled = true, priority = 1, url_pattern = ".gutenberg.org" }
 arxiv = { enabled = true, priority = 2, url_pattern = ".arxiv.org" }
 pubmed = { enabled = true, priority = 3, url_pattern = ".nih.gov" }
 youtube = { enabled = true, priority = 4, url_pattern = ".youtube.com" }
+
 [crawl.allowlist]
 urls = [".gutenberg.org", ".arxiv.org", ".nih.gov", ".youtube.com"]
 enforce = true
+
 [crawl.metadata]
 storage_path = "/knowledge/curator/index.toml"
 track_sources = true
 track_timestamps = true
 track_categories = true
-============================================================================
-[vectorstore] - FAISS Configuration
-============================================================================
+
+# ============================================================================
+# [vectorstore] - FAISS Configuration
+# ============================================================================
 [vectorstore]
 type = "faiss"
 index_path = "/app/XNAi_rag_app/faiss_index"
@@ -182,6 +199,7 @@ backup_path = "/backups"
 max_docs = 1000000
 save_local_timeout_s = 30
 ingest_batch_size = 100
+
 [vectorstore.qdrant]
 enabled = false
 host = "localhost"
@@ -189,9 +207,10 @@ port = 6333
 collection = "xnai_knowledge"
 vector_size = 384
 distance = "cosine"
-============================================================================
-[api] - API Endpoints Configuration
-============================================================================
+
+# ============================================================================
+# [api] - API Endpoints Configuration
+# ============================================================================
 [api]
 base_url = "http://rag:8000"
 health_endpoint = "/health"
@@ -202,9 +221,10 @@ streaming_chunk_size = 1024
 streaming_heartbeat_s = 30
 sse_keepalive_interval_s = 15
 sse_max_message_size_bytes = 65536
-============================================================================
-[logging] - Structured Logging Configuration
-============================================================================
+
+# ============================================================================
+# [logging] - Structured Logging Configuration
+# ============================================================================
 [logging]
 level = "INFO"
 format = "json"
@@ -217,30 +237,35 @@ include_timestamp = true
 include_level = true
 include_module = true
 include_function = true
-============================================================================
-[metrics] - Prometheus Configuration
-============================================================================
+
+# ============================================================================
+# [metrics] - Prometheus Configuration
+# ============================================================================
 [metrics]
 enabled = true
 port = 8002
 multiproc_dir = "/prometheus_data"
 update_interval_s = 30
+
 [metrics.gauges]
 memory_usage_gb = "Current memory usage in GB (system and process)"
 token_rate_tps = "Token generation rate in tokens per second"
 active_sessions = "Number of active user sessions"
 cache_hit_rate = "Redis cache hit rate"
+
 [metrics.histograms]
 response_latency_ms = "API response latency in milliseconds"
 rag_retrieval_time_ms = "RAG document retrieval time"
 crawl_duration_ms = "CrawlModule operation duration"
+
 [metrics.counters]
 ingest_items_total = "Total items ingested"
 crawl_items_total = "Total items crawled"
 crawl_errors_total = "Total crawl errors"
-============================================================================
-[healthcheck] - Health Monitoring Configuration
-============================================================================
+
+# ============================================================================
+# [healthcheck] - Health Monitoring Configuration
+# ============================================================================
 [healthcheck]
 enabled = true
 interval_seconds = 30
@@ -249,15 +274,17 @@ retries = 5
 start_period_seconds = 90
 command = "python3 /app/XNAi_rag_app/healthcheck.py"
 targets = ["llm", "embeddings", "memory", "redis", "vectorstore", "ryzen", "crawler"]
+
 [healthcheck.thresholds]
 memory_max_gb = 6.0
 llm_response_timeout_s = 10
 redis_ping_timeout_s = 5
 vectorstore_search_timeout_s = 10
 crawler_ping_timeout_s = 10
-============================================================================
-[backup] - Backup & Recovery Configuration
-============================================================================
+
+# ============================================================================
+# [backup] - Backup & Recovery Configuration
+# ============================================================================
 [backup]
 enabled = true
 interval_hours = 24
@@ -266,6 +293,7 @@ backup_redis = true
 backup_faiss = true
 backup_logs = true
 backup_path = "/backups"
+
 [backup.faiss]
 enabled = true
 retention_days = 7
@@ -273,24 +301,27 @@ max_count = 5
 cleanup_on_startup = true
 compression = false
 verify_on_load = true
-============================================================================
-[phase2] - Multi-Agent Preparation (All disabled in Phase 1)
-============================================================================
+
+# ============================================================================
+# [phase2] - Multi-Agent Preparation (All disabled in Phase 1)
+# ============================================================================
 [phase2]
 multi_agent_enabled = false
 async_operations = true
 max_concurrent_agents = 4
 agent_task_queue_size = 100
 agent_timeout_seconds = 300
+
 [phase2.agents]
 coding_assistant = { enabled = false, priority = 1, knowledge_path = "/knowledge/coder" }
 library_curator = { enabled = false, priority = 2, knowledge_path = "/knowledge/curator" }
 writing_assistant = { enabled = false, priority = 3, knowledge_path = "/knowledge/editor" }
 project_manager = { enabled = false, priority = 4, knowledge_path = "/knowledge/manager" }
 self_learning = { enabled = false, priority = 5, knowledge_path = "/knowledge/learner" }
-============================================================================
-[docker] - Docker Configuration
-============================================================================
+
+# ============================================================================
+# [docker] - Docker Configuration
+# ============================================================================
 [docker]
 dockerfile_api = "./Dockerfile.api"
 dockerfile_chainlit = "./Dockerfile.chainlit"
@@ -301,9 +332,10 @@ tmpfs_chainlit_mode = "1777"
 tmpfs_chainlit_size = "512m"
 buildkit_enabled = true
 no_cache = false
-============================================================================
-[validation] - Validation Rules
-============================================================================
+
+# ============================================================================
+# [validation] - Validation Rules
+# ============================================================================
 [validation]
 strict_mode = true
 check_model_paths = true
@@ -314,9 +346,10 @@ min_cpu_threads = 4
 max_cpu_threads = 8
 required_env_vars = 197
 required_telemetry_disables = 8
-============================================================================
-[debug] - Debug Settings (All disabled in production)
-============================================================================
+
+# ============================================================================
+# [debug] - Debug Settings (All disabled in production)
+# ============================================================================
 [debug]
 mode = false
 verbose_errors = false
@@ -326,4 +359,3 @@ log_sql_queries = false
 mock_external_calls = false
 dump_request_payloads = false
 dump_response_payloads = false
-============================================================================
