@@ -1,165 +1,117 @@
 # ============================================================================
-
 # Xoe-NovAi Phase 1 v0.1.2 - CrawlModule Service Dockerfile (FIXED)
-
 # ============================================================================
-
 # Purpose: Library curation service for 4 external sources
 # Guide Reference: Section 6.3.3 (Dockerfile.crawl)
-# Guide Reference: Section 9 (CrawlModule Integration)
 # Last Updated: 2025-10-18
-# CRITICAL FIX: Separated RUN and USER instructions (was causing build failure)
-
+# 
+# CRITICAL FIX: Separated RUN and USER instructions
 # ============================================================================
 
+# ============================================================================
 # STAGE 1: BUILDER
-
 # ============================================================================
-
 FROM python:3.12-slim AS builder
 
-# Build metadata
+LABEL maintainer="Xoe-NovAi Team"
+LABEL version="0.1.2"
+LABEL description="CrawlModule Builder Stage"
 
-LABEL maintainer="Xoe-NovAi Team" LABEL version="0.1.2" LABEL description="CrawlModule Builder Stage"
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive
 
-# Set build-time environment variables
-
-ENV PYTHONUNBUFFERED=1 
- PYTHONDONTWRITEBYTECODE=1 
- PIP_NO_CACHE_DIR=1 
- PIP_DISABLE_PIP_VERSION_CHECK=1 
- DEBIAN_FRONTEND=noninteractive
-
-# Install build dependencies
-
-RUN apt-get update && apt-get install -y --no-install-recommends 
- build-essential 
- git 
- && rm -rf /var/lib/apt/lists/* 
- && apt-get clean
-
-# Create build directory
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 WORKDIR /build
 
-# Copy requirements first (layer caching optimization)
-
 COPY requirements-crawl.txt .
-
-# Compile dependencies as wheels
 
 RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements-crawl.txt
 
-# Verify critical wheels were built
-
-RUN ls -lh /wheels/ && 
- test -f /wheels/crawl4ai-*.whl || (echo "ERROR: crawl4ai wheel not found" && exit 1) && 
- test -f /wheels/yt_dlp-*.whl || (echo "ERROR: yt-dlp wheel not found" && exit 1)
+RUN ls -lh /wheels/ && \
+    test -f /wheels/crawl4ai-*.whl || (echo "ERROR: crawl4ai wheel not found" && exit 1) && \
+    test -f /wheels/yt_dlp-*.whl || (echo "ERROR: yt-dlp wheel not found" && exit 1)
 
 # ============================================================================
-
 # STAGE 2: RUNTIME
-
 # ============================================================================
-
 FROM python:3.12-slim AS runtime
 
-# Runtime metadata
+LABEL maintainer="Xoe-NovAi Team"
+LABEL version="0.1.2"
+LABEL description="CrawlModule Runtime"
 
-LABEL maintainer="Xoe-NovAi Team" LABEL version="0.1.2" LABEL description="CrawlModule Runtime" LABEL component="crawler"
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    CRAWL4AI_NO_TELEMETRY=true \
+    PATH="/home/appuser/.local/bin:$PATH" \
+    PYTHONPATH="/app:$PYTHONPATH" \
+    CRAWL4AI_MAX_DEPTH=2 \
+    CRAWL_RATE_LIMIT_PER_MIN=30 \
+    CRAWL_SANITIZE_SCRIPTS=true \
+    CRAWL_MAX_ITEMS=50 \
+    CRAWL_CACHE_DIR=/app/cache \
+    CRAWL_CACHE_TTL=86400 \
+    CRAWL_USER_AGENT="Xoe-NovAi-CrawlModule/0.1.7"
 
-# Set runtime environment variables
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    procps \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
-ENV PYTHONUNBUFFERED=1 
- PYTHONDONTWRITEBYTECODE=1 
- CRAWL4AI_NO_TELEMETRY=true 
- PATH="/home/appuser/.local/bin:$PATH" 
- PYTHONPATH="/app:$PYTHONPATH" 
- CRAWL4AI_MAX_DEPTH=2 
- CRAWL_RATE_LIMIT_PER_MIN=30 
- CRAWL_SANITIZE_SCRIPTS=true 
- CRAWL_MAX_ITEMS=50 
- CRAWL_CACHE_DIR=/app/cache 
- CRAWL_CACHE_TTL=86400 
- CRAWL_USER_AGENT="Xoe-NovAi-CrawlModule/0.1.7"
-
-# Install runtime dependencies
-
-RUN apt-get update && apt-get install -y --no-install-recommends 
- curl 
- procps 
- ffmpeg 
- && rm -rf /var/lib/apt/lists/* 
- && apt-get clean
-
-# Create non-root user
-
-RUN groupadd -g 1001 appuser && 
- useradd -m -u 1001 -g appuser -s /bin/bash appuser && 
- mkdir -p /app/XNAi_rag_app && 
- chown -R appuser:appuser /app
-
-# Copy compiled wheels from builder
+RUN groupadd -g 1001 appuser && \
+    useradd -m -u 1001 -g appuser -s /bin/bash appuser && \
+    mkdir -p /app/XNAi_rag_app && \
+    chown -R appuser:appuser /app
 
 COPY --from=builder /wheels /wheels
 
-# Install wheels as non-root
+USER appuser
+RUN pip install --no-cache-dir --user /wheels/*.whl
 
-USER appuser RUN pip install --no-cache-dir --user /wheels/*.whl
-
-# Verify critical installations
-
-RUN python3 -c "import crawl4ai; print(f'crawl4ai {crawl4ai.**version**} installed')" && 
- python3 -c "import yt_dlp; print(f'yt-dlp installed')" && 
- python3 -c "import os; assert os.getenv('CRAWL4AI_NO_TELEMETRY') == 'true', 'Telemetry not disabled!'"
-
-# Switch back to root for directory setup
+RUN python3 -c "import crawl4ai; print(f'crawl4ai {crawl4ai.__version__} installed')" && \
+    python3 -c "import yt_dlp; print(f'yt-dlp installed')" && \
+    python3 -c "import os; assert os.getenv('CRAWL4AI_NO_TELEMETRY') == 'true', 'Telemetry not disabled!'"
 
 USER root
 
-# Create directory structure
+RUN mkdir -p \
+    /app/cache \
+    /library \
+    /knowledge/curator && \
+    chown -R appuser:appuser \
+    /app \
+    /library \
+    /knowledge
 
-RUN mkdir -p 
- /app/cache 
- /library 
- /knowledge/curator && 
- chown -R appuser:appuser 
- /app 
- /library 
- /knowledge
-
-# Create allowlist configuration file
-
-RUN echo "*.gutenberg.org" > /app/allowlist.txt && 
- echo "*.arxiv.org" >> /app/allowlist.txt && 
- echo "*.nih.gov" >> /app/allowlist.txt && 
- echo "*.youtube.com" >> /app/allowlist.txt && 
- chown appuser:appuser /app/allowlist.txt && 
- chmod 444 /app/allowlist.txt
-
-# Set working directory
+RUN echo "*.gutenberg.org" > /app/allowlist.txt && \
+    echo "*.arxiv.org" >> /app/allowlist.txt && \
+    echo "*.nih.gov" >> /app/allowlist.txt && \
+    echo "*.youtube.com" >> /app/allowlist.txt && \
+    chown appuser:appuser /app/allowlist.txt && \
+    chmod 444 /app/allowlist.txt
 
 WORKDIR /app/XNAi_rag_app
 
-# Copy application code
-
 COPY --chown=appuser:appuser app/XNAi_rag_app/ /app/XNAi_rag_app/
 
-# Verify critical files exist (FIXED: removed USER command from RUN)
+# FIXED: Removed USER command from RUN instruction
+RUN test -f /app/XNAi_rag_app/crawl.py || (echo "ERROR: crawl.py not found" && exit 1) && \
+    test -f /app/XNAi_rag_app/config_loader.py || (echo "ERROR: config_loader.py not found" && exit 1)
 
-RUN test -f /app/XNAi_rag_app/crawl.py || (echo "ERROR: crawl.py not found" && exit 1) && 
- test -f /app/XNAi_rag_app/config_loader.py || (echo "ERROR: config_loader.py not found" && exit 1)
-
-# Switch to non-root user for execution
-
+# Switch to non-root user (separate instruction)
 USER appuser
 
-# Health check
-
-HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=5 
- CMD python3 -c "import crawl4ai; print('OK')" || exit 1
-
-# Default command: Keep container running for manual/scheduled curation
+HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=5 \
+    CMD python3 -c "import crawl4ai; print('OK')" || exit 1
 
 CMD ["tail", "-f", "/dev/null"]
- - FFmpeg for yt-dlp audio extraction ✓
