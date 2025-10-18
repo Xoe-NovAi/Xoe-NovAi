@@ -1,1 +1,53 @@
-data/redis/dump.rdb
+# Xoe-NovAi Phase 1 v0.1.2 .gitignore
+# Excludes large, generated, sensitive, and temporary files from public repo
+# Guide Reference: Section 2.4 (Configuration Management), 5.3 (Health Checks)
+
+# Generated data directories
+data/
+backups/
+library/
+knowledge/
+app/XNAi_rag_app/faiss_index/
+app/XNAi_rag_app/faiss_index.bak/
+
+
+# Large model and embedding files
+models/
+embeddings/
+
+# Sensitive configuration files
+.env
+.env.template
+.env_*
+
+# Internal development notes and summaries
+updates/
+
+# Git metadata (already ignored by Git, included for clarity)
+.git/
+
+# Python temporary files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.rdb
+
+# Local script outputs and archives
+scripts/stack-cat/
+scripts/stack-cat_old_versions_archive.7z
+scripts/stack-cat_v012.sh.txt
+scripts/stack-cat-output/
+
+# Temporary or misspelled files
+REAMDE_*.md
+
+# Logs
+logs/
+app/XNAi_rag_app/logs/
