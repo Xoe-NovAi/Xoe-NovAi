@@ -117,8 +117,7 @@ HEALTHCHECK --interval=30s --timeout=15s --retries=10 --start-period=180s \
 USER appuser
 
 # Default command (can be overridden)
-CMD ["python3", "/app/XNAi_rag_app/healthcheck.py"]
-
+CMD ["uvicorn", "XNAi_rag_app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info"]
 # ============================================================================
 # BUILD INSTRUCTIONS
 # ============================================================================
