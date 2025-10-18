@@ -1,21 +1,15 @@
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 - CrawlModule Service Dockerfile (FIXED)
+# Xoe-NovAi Phase 1 v0.1.2 - CrawlModule Service Dockerfile
 # ============================================================================
 # Purpose: Library curation service for 4 external sources
-# Guide Reference: Section 6.3.3 (Dockerfile.crawl)
 # Last Updated: 2025-10-18
-# 
-# CRITICAL FIX: Separated RUN and USER instructions
+# CRITICAL: Lines 102-105 FIXED - USER command separated from RUN
 # ============================================================================
 
-# ============================================================================
-# STAGE 1: BUILDER
-# ============================================================================
 FROM python:3.12-slim AS builder
 
 LABEL maintainer="Xoe-NovAi Team"
 LABEL version="0.1.2"
-LABEL description="CrawlModule Builder Stage"
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -40,13 +34,12 @@ RUN ls -lh /wheels/ && \
     test -f /wheels/yt_dlp-*.whl || (echo "ERROR: yt-dlp wheel not found" && exit 1)
 
 # ============================================================================
-# STAGE 2: RUNTIME
+# RUNTIME STAGE
 # ============================================================================
 FROM python:3.12-slim AS runtime
 
 LABEL maintainer="Xoe-NovAi Team"
 LABEL version="0.1.2"
-LABEL description="CrawlModule Runtime"
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -76,6 +69,7 @@ RUN groupadd -g 1001 appuser && \
 COPY --from=builder /wheels /wheels
 
 USER appuser
+
 RUN pip install --no-cache-dir --user /wheels/*.whl
 
 RUN python3 -c "import crawl4ai; print(f'crawl4ai {crawl4ai.__version__} installed')" && \
@@ -104,11 +98,10 @@ WORKDIR /app/XNAi_rag_app
 
 COPY --chown=appuser:appuser app/XNAi_rag_app/ /app/XNAi_rag_app/
 
-# FIXED: Removed USER command from RUN instruction
+# LINES 102-105: CRITICAL FIX - Separated RUN and USER
 RUN test -f /app/XNAi_rag_app/crawl.py || (echo "ERROR: crawl.py not found" && exit 1) && \
     test -f /app/XNAi_rag_app/config_loader.py || (echo "ERROR: config_loader.py not found" && exit 1)
 
-# Switch to non-root user (separate instruction)
 USER appuser
 
 HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=5 \
