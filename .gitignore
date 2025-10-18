@@ -17,8 +17,8 @@ embeddings/
 
 # Sensitive configuration files
 .env
-.env.template
-.env_*
+.env.*.old
+.env_v*
 
 # Internal development notes and summaries
 updates/
