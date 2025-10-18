@@ -6,7 +6,6 @@
 # Last Updated: 2025-10-13
 # CRITICAL FIXES:
 #   - Removed obsolete 'version' key (Compose v2)
-#   - Fixed Redis entrypoint (use native Redis command)
 #   - Removed cap_drop from Redis (conflicts with user 999)
 #   - Updated volume mounts for library/ and knowledge/
 # ============================================================================
@@ -79,7 +78,6 @@ services:
       
       # Common mounts
       - ./data/prometheus-multiproc:/prometheus_data
-      - ./entrypoint-api.sh:/entrypoint-api.sh:ro
       - ./app/XNAi_rag_app:/app/XNAi_rag_app
     environment:
       - RAG_API_URL=http://rag:8000
@@ -133,7 +131,6 @@ services:
     container_name: xnai_chainlit_ui
     volumes:
       - ./app/XNAi_rag_app:/app/XNAi_rag_app
-      - ./entrypoint-chainlit.sh:/entrypoint-chainlit.sh:ro
     environment:
       - CHAINLIT_PORT=${CHAINLIT_PORT}
       - CHAINLIT_NO_TELEMETRY=${CHAINLIT_NO_TELEMETRY}
@@ -187,7 +184,6 @@ services:
       # - crawler_cache:/app/cache
       
       # Common mounts
-      - ./entrypoint-crawl.sh:/entrypoint-crawl.sh:ro
       - ./app/XNAi_rag_app:/app/XNAi_rag_app
     environment:
       - CRAWL4AI_NO_TELEMETRY=${CRAWL4AI_NO_TELEMETRY:-true}

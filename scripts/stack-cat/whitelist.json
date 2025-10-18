@@ -1,16 +1,25 @@
 {
   "allowed_roots": [
-    "stack-cat/stack-cat_v012.sh",
+    "Dockerfile.api",
+    "Dockerfile.chainlit",
+    "Dockerfile.crawl",
+    "Dockerfile.redis",
     "docker-compose.yml",
+    "requirements-api.txt",
+    "requirements-chainlit.txt",
+    "requirements-crawl.txt",
+    "config.toml",
     ".env"
   ],
   "allowed_dirs": [
-    "app/XNAi_rag_app",
-    "scripts"
+    "app/",
+    "configs/",
+    "scripts/"
   ],
   "excluded_extensions": [
-    ".md",
-    ".log"
+    ".log",
+    ".tmp",
+    ".pyc",
+    ".pycache"
   ]
 }
-

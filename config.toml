@@ -336,16 +336,6 @@ buildkit_enabled = true
 no_cache = false
 
 # ============================================================================
-# [entrypoints] - Entrypoint Scripts Configuration
-# ============================================================================
-[entrypoints]
-api_script = "/entrypoint-api.sh"
-chainlit_script = "/entrypoint-chainlit.sh"
-redis_script = "/entrypoint-redis.sh"
-crawl_script = "/entrypoint-crawl.sh"    # NEW rev_1.4
-timeout_seconds = 120
-
-# ============================================================================
 # [validation] - Validation Rules
 # ============================================================================
 [validation]

@@ -1,113 +1,217 @@
-#!/usr/bin/env bash
-# stack-cat_v018n.sh – XNAi Stack Concatenation (Enterprise)
+#!/bin/bash
 set -euo pipefail
 
-# --- Configuration ---
-BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly ROOT_DIR="$(realpath "$BASE_DIR/../..")"  # Repo root
-readonly OUTPUT_DIR="$BASE_DIR/stack-cat-output"
-readonly SPLIT_DIR="${OUTPUT_DIR}/splits"
-readonly INDIVIDUAL_DIR="${OUTPUT_DIR}/individual"
-readonly SPLIT_SIZE="${SPLIT_SIZE:-5000}"  # Default split size in lines
-readonly GENERATE_HTML="${GENERATE_HTML:-true}"
-readonly VERIFY_CHECKSUMS="${VERIFY_CHECKSUMS:-false}"
+# ============================================================================
+# stack-cat v0.15 - FIXED VERSION
+# ============================================================================
 
-# --- Whitelists ---
-readonly ALLOWED_ROOT_FILES=(
-    "README.md" "LICENSE" "CHANGELOG.md" ".env.example"
-    "Dockerfile" "docker-compose.yml" "requirements.txt" "stack-cat_v012.sh"
-)
+# Use relative paths from script location
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+OUTPUT_DIR="${SCRIPT_DIR}/stack-cat-output"
 
-# --- Groups & patterns ---
-readonly GROUPS_JSON="$BASE_DIR/groups.json"
+# Create output directory relative to script
+mkdir -p "${OUTPUT_DIR}"
 
-# --- Logging ---
-log() { echo "[$(date +'%Y-%m-%d %H:%M:%S')] [$1] $2"; }
+# ============================================================================
+# Simple Configuration
+# ============================================================================
 
-# --- Dry-run mode ---
-DRY_RUN=false
-if [[ "${1:-}" == "--dry-run" ]] || [[ "${2:-}" == "--dry-run" ]]; then
-    DRY_RUN=true
-    log "INFO" "=== DRY RUN MODE ==="
-fi
-
-# --- Load group patterns ---
-get_group_patterns() {
-    local group="$1"
-    jq -r --arg g "$group" '.[$g][]?' "$GROUPS_JSON" 2>/dev/null || echo ""
+log() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" >&2
 }
 
-# --- Collect files ---
-collect_files() {
-    local group="$1"
-    local patterns
-    mapfile -t patterns < <(get_group_patterns "$group")
+# ============================================================================
+# Collect files using simple find
+# ============================================================================
 
-    # Always include whitelisted root files if they exist
-    local files=()
-    for file in "${ALLOWED_ROOT_FILES[@]}"; do
-        local full="$ROOT_DIR/$file"
-        if [[ -f "$full" ]]; then
-            files+=("$full")
+collect_files() {
+    log "Collecting files from: ${PROJECT_ROOT}"
+    
+    local -a files=()
+    
+    # Find all relevant files
+    while IFS= read -r -d '' file; do
+        # Skip hidden directories and common exclusions
+        if [[ "$file" =~ /\. ]] || \
+           [[ "$file" =~ /__pycache__/ ]] || \
+           [[ "$file" =~ /\.venv/ ]] || \
+           [[ "$file" =~ /venv/ ]] || \
+           [[ "$file" =~ /node_modules/ ]] || \
+           [[ "$file" =~ /\.git/ ]] || \
+           [[ "$file" =~ /\.pytest_cache/ ]] || \
+           [[ "$file" =~ /stack-cat-output/ ]] || \
+           [[ "$file" =~ \.pyc$ ]] || \
+           [[ "$file" =~ \.log$ ]] || \
+           [[ "$file" =~ \.tmp$ ]]; then
+            continue
+        fi
+        
+        files+=("$file")
+    done < <(
+        find "${PROJECT_ROOT}" -type f \( \
+            -name "*.py" -o \
+            -name "*.js" -o \
+            -name "*.ts" -o \
+            -name "*.jsx" -o \
+            -name "*.tsx" -o \
+            -name "*.sh" -o \
+            -name "*.bash" -o \
+            -name "*.yml" -o \
+            -name "*.yaml" -o \
+            -name "*.json" -o \
+            -name "*.toml" -o \
+            -name "*.md" -o \
+            -name "*.txt" -o \
+            -name "Dockerfile*" -o \
+            -name "docker-compose.yml" \
+        \) -print0 2>/dev/null
+    )
+    
+    printf '%s\n' "${files[@]}"
+}
+
+get_file_type() {
+    local file="$1"
+    local filename=$(basename "$file")
+    
+    if [[ "$filename" =~ ^Dockerfile ]]; then
+        echo "Dockerfile"
+    elif [[ "$filename" == "docker-compose.yml" ]]; then
+        echo "Docker Compose"
+    elif [[ "$filename" == *.py ]]; then
+        echo "Python"
+    elif [[ "$filename" == *.sh ]] || [[ "$filename" == *.bash ]]; then
+        echo "Shell Script"
+    elif [[ "$filename" == *.js ]]; then
+        echo "JavaScript"
+    elif [[ "$filename" == *.ts ]]; then
+        echo "TypeScript"
+    elif [[ "$filename" == *.yml ]] || [[ "$filename" == *.yaml ]]; then
+        echo "YAML"
+    elif [[ "$filename" == *.json ]]; then
+        echo "JSON"
+    elif [[ "$filename" == *.toml ]]; then
+        echo "TOML"
+    elif [[ "$filename" == *.md ]]; then
+        echo "Markdown"
+    elif [[ "$filename" == *.txt ]]; then
+        echo "Text"
+    else
+        echo "Text"
+    fi
+}
+
+generate_output() {
+    local -a files=("$@")
+    local timestamp=$(date +%Y%m%d_%H%M%S)
+    local output_file="${OUTPUT_DIR}/stack-cat_${timestamp}.txt"
+    
+    log "Generating: ${output_file}"
+    log "Processing ${#files[@]} files..."
+    
+    # Write header
+    cat > "${output_file}" <<EOF
+################################################################################
+# Stack-Cat Output
+# Generated: $(date +'%Y-%m-%d %H:%M:%S')
+# Project: ${PROJECT_ROOT}
+# Files: ${#files[@]}
+################################################################################
+
+EOF
+    
+    # Process each file
+    local count=0
+    for file in "${files[@]}"; do
+        local rel_path="${file#${PROJECT_ROOT}/}"
+        local file_type=$(get_file_type "$file")
+        
+        # Write file header
+        cat >> "${output_file}" <<EOF
+################################################################################
+# File: ${rel_path}
+# Type: ${file_type}
+################################################################################
+
+EOF
+        
+        # Write file content
+        if [[ -r "$file" ]]; then
+            cat "$file" >> "${output_file}" 2>/dev/null || echo "# ERROR: Cannot read file" >> "${output_file}"
         else
-            log "WARN" "Whitelisted root file missing: $full"
+            echo "# ERROR: Cannot read file" >> "${output_file}"
+        fi
+        
+        # Add spacing
+        echo "" >> "${output_file}"
+        echo "" >> "${output_file}"
+        
+        ((count++))
+        if ((count % 10 == 0)); then
+            log "Processed ${count}/${#files[@]} files"
         fi
     done
-
-    # Collect group pattern files
-    for pattern in "${patterns[@]}"; do
-        while IFS= read -r f; do
-            files+=("$f")
-        done < <(find "$ROOT_DIR" -type f -path "$ROOT_DIR/$pattern" 2>/dev/null)
-    done
-
-    echo "${files[@]}"
+    
+    log "Complete: ${output_file}"
+    
+    # Create symlink to latest
+    cd "${OUTPUT_DIR}"
+    ln -sf "$(basename "${output_file}")" "stack-cat_latest.txt"
+    cd - > /dev/null
+    
+    # Show file info
+    local file_size=$(ls -lh "${output_file}" | awk '{print $5}')
+    log "Output size: ${file_size}"
+    log "Location: ${output_file}"
 }
 
-# --- Main ---
-GROUP="${1:-default}"
-log "INFO" "Starting XNAi Stack Concatenation (Group: $GROUP)"
+# ============================================================================
+# Main
+# ============================================================================
 
-FILES=( $(collect_files "$GROUP") )
-
-if [[ ${#FILES[@]} -eq 0 ]]; then
-    log "ERROR" "No files matched the whitelist or patterns."
-    [[ "$DRY_RUN" == "true" ]] && log "INFO" "Would process 0 files:" || exit 1
-fi
-
-if [[ "$DRY_RUN" == "true" ]]; then
-    log "INFO" "Would process ${#FILES[@]} files:"
-    for f in "${FILES[@]}"; do
-        echo " - $f"
+main() {
+    log "Stack-Cat v0.15"
+    log "Script location: ${SCRIPT_DIR}"
+    log "Project root: ${PROJECT_ROOT}"
+    log "Output directory: ${OUTPUT_DIR}"
+    echo ""
+    
+    # Collect files
+    log "Scanning project..."
+    mapfile -t FILES < <(collect_files)
+    
+    log "Found ${#FILES[@]} files"
+    
+    if [[ ${#FILES[@]} -eq 0 ]]; then
+        log "ERROR: No files found"
+        log "Check that ${PROJECT_ROOT} contains code files"
+        exit 1
+    fi
+    
+    # Show sample of files
+    log "Sample files:"
+    printf '%s\n' "${FILES[@]}" | head -10 | while read -r f; do
+        log "  - ${f#${PROJECT_ROOT}/}"
     done
-    log "INFO" "Dry run complete. No files written."
-    exit 0
-fi
+    
+    if [[ ${#FILES[@]} -gt 10 ]]; then
+        log "  ... and $((${#FILES[@]} - 10)) more"
+    fi
+    echo ""
+    
+    # Generate output
+    generate_output "${FILES[@]}"
+    
+    echo ""
+    log "SUCCESS!"
+    log "Output location: ${OUTPUT_DIR}"
+    log "Latest file: ${OUTPUT_DIR}/stack-cat_latest.txt"
+    echo ""
+    log "To view the output:"
+    log "  cat ${OUTPUT_DIR}/stack-cat_latest.txt"
+    log "  or"
+    log "  less ${OUTPUT_DIR}/stack-cat_latest.txt"
+}
 
-# --- Prepare output dirs ---
-mkdir -p "$SPLIT_DIR" "$INDIVIDUAL_DIR"
-TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
-OUTPUT_MD="$OUTPUT_DIR/stack-concat.md"
-> "$OUTPUT_MD"
-
-# --- Concatenate ---
-for f in "${FILES[@]}"; do
-    echo "## $f" >> "$OUTPUT_MD"
-    cat "$f" >> "$OUTPUT_MD"
-    echo -e "\n" >> "$OUTPUT_MD"
-
-    # Save individual file copy
-    cp "$f" "$INDIVIDUAL_DIR/"
-done
-
-# --- Optionally generate HTML ---
-if [[ "$GENERATE_HTML" == "true" ]]; then
-    OUTPUT_HTML="${OUTPUT_MD%.md}.html"
-    pandoc "$OUTPUT_MD" -s -o "$OUTPUT_HTML"
-fi
-
-log "INFO" "✅ Completed successfully"
-log "INFO" "Master Markdown: $OUTPUT_MD"
-[[ "$GENERATE_HTML" == "true" ]] && log "INFO" "Master HTML: $OUTPUT_HTML"
-log "INFO" "Individual files: $INDIVIDUAL_DIR"
-log "INFO" "Splits: $SPLIT_DIR"
+main "$@"

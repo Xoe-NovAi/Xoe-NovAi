@@ -160,14 +160,9 @@ WORKDIR /app/XNAi_rag_app
 # Guide Reference: Section 9.2 (CrawlModule Code)
 COPY --chown=appuser:appuser app/XNAi_rag_app/ /app/XNAi_rag_app/
 
-# Copy entrypoint script
-COPY --chown=appuser:appuser --chmod=755 entrypoint-crawl.sh /entrypoint-crawl.sh
-
 # Verify critical files exist
 RUN test -f /app/XNAi_rag_app/crawl.py || (echo "ERROR: crawl.py not found" && exit 1) && \
     test -f /app/XNAi_rag_app/config_loader.py || (echo "ERROR: config_loader.py not found" && exit 1) && \
-    test -f /entrypoint-crawl.sh || (echo "ERROR: entrypoint-crawl.sh not found" && exit 1) && \
-    test -f /app/allowlist.txt || (echo "ERROR: allowlist.txt not found" && exit 1)
 
 # Switch to non-root user for execution
 USER appuser
@@ -179,11 +174,8 @@ USER appuser
 HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=5 \
     CMD python3 -c "import crawl4ai; print('OK')" || exit 1
 
-# Set entrypoint
-ENTRYPOINT ["/entrypoint-crawl.sh"]
-
 # Default command (keeps container running for manual/scheduled curation)
-CMD ["tail", "-f", "/dev/null"]
+CMD ["python3", "-c", "import crawl4ai; print('OK')"]
 
 # ============================================================================
 # BUILD INSTRUCTIONS

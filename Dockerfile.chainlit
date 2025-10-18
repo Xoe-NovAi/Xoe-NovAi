@@ -73,11 +73,9 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY app/XNAi_rag_app /app/XNAi_rag_app
-COPY entrypoint-chainlit.sh /entrypoint-chainlit.sh
 
 # Set permissions and create Chainlit files directory
-RUN chmod +x /entrypoint-chainlit.sh \
-    && mkdir -p /app/XNAi_rag_app/tmp /app/XNAi_rag_app/logs /app/.files \
+RUN mkdir -p /app/XNAi_rag_app/tmp /app/XNAi_rag_app/logs /app/.files \
     && chown -R appuser:appuser /app \
     && chmod -R 755 /app
 
@@ -102,11 +100,8 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=5 --start-period=60s \
 # Run as non-root user
 USER appuser
 
-# Entrypoint
-ENTRYPOINT ["/entrypoint-chainlit.sh"]
-
 # Default command
-CMD []
+CMD ["curl", "-f", "http://localhost:8001/health"]
 
 # ============================================================================
 # BUILD INSTRUCTIONS

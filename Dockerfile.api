@@ -88,11 +88,9 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY app/XNAi_rag_app /app/XNAi_rag_app
-COPY entrypoint-api.sh /entrypoint-api.sh
 
 # Set permissions
-RUN chmod +x /entrypoint-api.sh \
-    && mkdir -p /app/XNAi_rag_app/logs /app/XNAi_rag_app/faiss_index /backups /prometheus_data \
+RUN mkdir -p /app/XNAi_rag_app/logs /app/XNAi_rag_app/faiss_index /backups /prometheus_data \
     && chown -R appuser:appuser /app /backups /prometheus_data \
     && chmod -R 755 /app /backups /prometheus_data
 
@@ -118,11 +116,8 @@ HEALTHCHECK --interval=30s --timeout=15s --retries=10 --start-period=180s \
 # Run as non-root user
 USER appuser
 
-# Entrypoint
-ENTRYPOINT ["/entrypoint-api.sh"]
-
 # Default command (can be overridden)
-CMD []
+CMD ["python3", "/app/XNAi_rag_app/healthcheck.py"]
 
 # ============================================================================
 # BUILD INSTRUCTIONS
