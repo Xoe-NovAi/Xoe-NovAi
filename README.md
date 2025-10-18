@@ -249,5 +249,3 @@ MIT License. See [LICENSE](LICENSE).
 ## Acknowledgments
 
 - Built with: Chainlit, FastAPI, Redis, FAISS, Crawl4AI, LlamaCpp.
-- Inspired by: Project Gutenberg, arXiv, PubMed, YouTube; ancient myths like Sophia, Lilith, and Ma'at's 42 Ideals.
-- Thanks to: Claude, ChatGPT for co-piloting through 7 months of dev! 
