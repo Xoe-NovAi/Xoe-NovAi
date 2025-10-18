@@ -1,28 +1,9 @@
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 rev_1.4 - FastAPI RAG Service Dockerfile
+# Xoe-NovAi Phase 1 v0.1.2 - FastAPI RAG Service Dockerfile
 # ============================================================================
 # Purpose: Multi-stage production build for RAG API with LLM/FAISS
 # Guide Reference: Section 6.3.1 (Dockerfile.api)
-# Last Updated: 2025-10-15
-# 
-# Build Strategy:
-#   - Multi-stage: Separate builder and runtime for minimal image size
-#   - Security: Non-root user (UID 1001), capability dropping, no new privileges
-#   - Optimization: Layer caching, pip wheel compilation, BuildKit inline cache
-#   - Ryzen: AMD Zen2 OpenBLAS compilation for llama-cpp-python
-# 
-# Performance Targets:
-#   - Build time: <10 minutes (cached: <2 minutes)
-#   - Image size: <2GB (excluding models)
-#   - Startup time: <90s
-#   - Memory footprint: <500MB base (before model loading)
-# 
-# Security Hardening:
-#   - Non-root execution (appuser:1001)
-#   - Minimal base (python:3.12-slim)
-#   - No unnecessary packages
-#   - Read-only model mounts
-#   - Tmpfs for ephemeral data
+# Last Updated: 2025-10-18
 # ============================================================================
 
 # ============================================================================
@@ -30,19 +11,16 @@
 # ============================================================================
 FROM python:3.12-slim AS builder
 
-# Build metadata
 LABEL maintainer="Xoe-NovAi Team"
 LABEL version="0.1.2"
 LABEL description="RAG API Builder Stage"
 
-# Set build-time environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     DEBIAN_FRONTEND=noninteractive
 
-# Install build dependencies (unpinned for latest stable - fixes apt error)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     cmake \
@@ -54,15 +32,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /build
 
-# Copy requirements
 COPY requirements-api.txt .
 
-# Build environment for llama-cpp-python (Ryzen optimization)
+# Ryzen optimization for llama-cpp-python
 ENV CMAKE_ARGS="-DLLAMA_BLAS=ON -DLLAMA_BLAS_VENDOR=OpenBLAS -DLLAMA_AVX2=ON -DLLAMA_FMA=ON -DLLAMA_F16C=ON"
 ENV FORCE_CMAKE=1
 ENV LLAMA_CPP_NO_PYTHON=0
 
-# Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir -r requirements-api.txt
 
@@ -71,30 +47,24 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
 # ============================================================================
 FROM python:3.12-slim
 
-# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Create non-root user (UID 1001, GID 1001)
 RUN groupadd -g 1001 appuser && useradd -m -u 1001 -g 1001 -s /bin/bash appuser
 
 WORKDIR /app
 
-# Copy Python site-packages from builder
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy application code
 COPY app/XNAi_rag_app /app/XNAi_rag_app
 
-# Set permissions
 RUN mkdir -p /app/XNAi_rag_app/logs /app/XNAi_rag_app/faiss_index /backups /prometheus_data \
     && chown -R appuser:appuser /app /backups /prometheus_data \
     && chmod -R 755 /app /backups /prometheus_data
 
-# Environment variables (Ryzen optimization)
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     LLAMA_CPP_N_THREADS=6 \
@@ -106,52 +76,11 @@ ENV PYTHONUNBUFFERED=1 \
     OPENBLAS_CORETYPE=ZEN \
     MKL_DEBUG_CPU_TYPE=5
 
-# Expose ports
 EXPOSE 8000 8002
 
-# Healthcheck
 HEALTHCHECK --interval=30s --timeout=15s --retries=10 --start-period=180s \
     CMD python3 /app/XNAi_rag_app/healthcheck.py || exit 1
 
-# Run as non-root user
 USER appuser
 
-# Default command (can be overridden)
 CMD ["uvicorn", "XNAi_rag_app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--log-level", "info"]
-# ============================================================================
-# BUILD INSTRUCTIONS
-# ============================================================================
-# Build:
-#   docker build -f Dockerfile.api -t xnai-rag:0.1.2 .
-#
-# Build with cache:
-#   DOCKER_BUILDKIT=1 docker build --build-arg BUILDKIT_INLINE_CACHE=1 \
-#     -f Dockerfile.api -t xnai-rag:0.1.2 .
-#
-# Run standalone:
-#   docker run -d --name xnai_rag \
-#     -v ./models:/models:ro \
-#     -v ./embeddings:/embeddings:ro \
-#     -v ./library:/library \
-#     -v ./knowledge:/knowledge \
-#     -e REDIS_HOST=redis \
-#     -e REDIS_PASSWORD=secure_password \
-#     -p 8000:8000 -p 8002:8002 \
-#     xnai-rag:0.1.2
-#
-# Verify:
-#   docker exec xnai_rag python3 -c "from dependencies import get_llm; print('OK')"
-#   curl http://localhost:8000/health | jq
-#
-# Debug:
-#   docker run -it --rm xnai-rag:0.1.2 /bin/bash
-# ============================================================================
-
-# Self-Critique: 10/10
-# - Multi-stage build for minimal image size ✓
-# - Security hardening (non-root, capability dropping in compose) ✓
-# - Ryzen AMD Zen2 optimization ✓
-# - Layer caching optimization ✓
-# - Complete error handling ✓
-# - Health check integration ✓
-# - Production-ready documentation ✓
