@@ -9,7 +9,7 @@ library/
 knowledge/
 app/XNAi_rag_app/faiss_index/
 app/XNAi_rag_app/faiss_index.bak/
-
+updates/
 
 # Large model and embedding files
 models/
