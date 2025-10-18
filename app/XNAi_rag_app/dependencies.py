@@ -4,7 +4,7 @@
 # ============================================================================
 # Purpose: Centralized dependency management for LLM, embeddings, vectorstore, curator
 # Guide Reference: Section 4 (Core Dependencies Module)
-# Last Updated: 2025-10-13
+# Last Updated: 2025-10-18
 # ============================================================================
 # Features:
 #   - @retry decorators (3 attempts, exponential backoff)
@@ -12,20 +12,21 @@
 #   - LlamaCppEmbeddings (50% memory savings vs HuggingFace)
 #   - Kwarg filtering for Pydantic compatibility
 #   - Memory checks before loading (<6GB threshold)
-#   - NEW v0.1.2: get_curator() for CrawlModule integration
+#   - get_curator() for CrawlModule integration
+#   - Async wrapper functions for all components
 #   - No HuggingFace dependencies
 # ============================================================================
 
 import os
 import sys
-import glob
 import shutil
 import logging
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+import asyncio
 
-# Retry logic (Guide Ref: Best practices - automated retries)
+# Retry logic
 from tenacity import (
     retry,
     stop_after_attempt,
@@ -33,33 +34,30 @@ from tenacity import (
     retry_if_exception_type
 )
 
-# LangChain imports (Guide Ref: Section 4 - pinned versions)
+# LangChain imports (lazy loaded where possible)
 from langchain_community.llms import LlamaCpp
 from langchain_community.embeddings import LlamaCppEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.docstore.document import Document
+from langchain_core.documents import Document
 
 # System monitoring
 import psutil
 
-# Logging setup
-try:
-    from logging_config import setup_logging
-    setup_logging()
-except ImportError:
-    logging.basicConfig(
-        level=logging.INFO,
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-    )
+# HTTP client
+import httpx
 
+# Logging setup
 logger = logging.getLogger(__name__)
 
-# Configuration loader (centralized config)
+# Configuration loader
 from config_loader import load_config, get_config_value
 
 # Load config once at module level
 CONFIG = load_config()
+
+# Global instances for singleton pattern
+_redis_client: Optional[Any] = None
+_http_client: Optional[httpx.AsyncClient] = None
 
 # ============================================================================
 # LLAMA CPP PARAMETER FILTERING
@@ -70,7 +68,6 @@ def filter_llama_kwargs(**kwargs) -> dict:
     Filter kwargs to only valid LlamaCpp parameters.
     
     Guide Reference: Section 4.2 (Pydantic Compatibility)
-    Best Practice: Explicit parameter validation prevents runtime errors
     
     Prevents Pydantic validation errors from extra kwargs.
     
@@ -80,7 +77,6 @@ def filter_llama_kwargs(**kwargs) -> dict:
     Returns:
         Filtered kwargs safe for LlamaCpp initialization
     """
-    # Valid LlamaCpp parameters (llama-cpp-python 0.3.16)
     valid_params = {
         'model_path', 'n_ctx', 'n_batch', 'n_gpu_layers', 'n_threads',
         'n_parts', 'seed', 'f16_kv', 'logits_all', 'vocab_only',
@@ -107,7 +103,6 @@ def check_available_memory(required_gb: float = 6.0) -> bool:
     Check if sufficient memory available before loading models.
     
     Guide Reference: Section 4.2 (Memory Management)
-    Best Practice: Fail-fast validation before expensive operations
     
     Args:
         required_gb: Required memory in GB (default: 6.0)
@@ -136,6 +131,113 @@ def check_available_memory(required_gb: float = 6.0) -> bool:
     return True
 
 # ============================================================================
+# REDIS CLIENT
+# ============================================================================
+
+def get_redis_client():
+    """
+    Get Redis client (singleton pattern).
+    
+    Guide Reference: Section 4.1 (Redis Client)
+    
+    Returns:
+        Redis client instance
+    """
+    global _redis_client
+    
+    if _redis_client is None:
+        try:
+            import redis
+        except ImportError:
+            logger.error("redis package not installed")
+            raise
+        
+        host = get_config_value("redis.host") or os.getenv("REDIS_HOST", "redis")
+        port = int(get_config_value("redis.port", default=6379))
+        password = get_config_value("redis.password") or os.getenv("REDIS_PASSWORD")
+        timeout = int(get_config_value("redis.timeout_seconds", default=60))
+        
+        _redis_client = redis.Redis(
+            host=host,
+            port=port,
+            password=password,
+            decode_responses=False,
+            socket_timeout=timeout,
+            max_connections=int(get_config_value("redis.max_connections", default=50))
+        )
+        
+        # Test connection
+        try:
+            _redis_client.ping()
+            logger.info(f"Redis client connected: {host}:{port}")
+        except Exception as e:
+            logger.error(f"Redis connection failed: {e}")
+            _redis_client = None
+            raise
+    
+    return _redis_client
+
+async def get_redis_client_async():
+    """
+    Get async Redis client (requires redis[asyncio]).
+    
+    Returns:
+        Async Redis client
+    """
+    try:
+        import redis.asyncio as redis_async
+    except ImportError:
+        raise RuntimeError(
+            "Async redis not available. Install: pip install redis[asyncio]"
+        )
+    
+    host = get_config_value("redis.host") or os.getenv("REDIS_HOST", "redis")
+    port = int(get_config_value("redis.port", default=6379))
+    password = get_config_value("redis.password") or os.getenv("REDIS_PASSWORD")
+    
+    return redis_async.Redis(
+        host=host,
+        port=port,
+        password=password,
+        decode_responses=False
+    )
+
+# ============================================================================
+# HTTP CLIENT
+# ============================================================================
+
+def get_http_client() -> httpx.AsyncClient:
+    """
+    Get shared HTTP client (singleton pattern).
+    
+    Returns:
+        Async HTTP client
+    """
+    global _http_client
+    
+    if _http_client is None:
+        timeout = float(get_config_value("server.timeout_seconds", default=30))
+        _http_client = httpx.AsyncClient(timeout=timeout)
+        logger.info("HTTP client initialized")
+    
+    return _http_client
+
+async def shutdown_dependencies():
+    """
+    Cleanly shutdown async clients and free resources.
+    """
+    global _http_client
+    
+    if _http_client is not None:
+        try:
+            await _http_client.aclose()
+            logger.info("HTTP client closed")
+        except Exception as e:
+            logger.warning(f"Error closing HTTP client: {e}")
+        finally:
+            _http_client = None
+
+# ============================================================================
 # LLM INITIALIZATION
 # ============================================================================
 
@@ -145,15 +247,11 @@ def check_available_memory(required_gb: float = 6.0) -> bool:
     retry=retry_if_exception_type((RuntimeError, OSError)),
     reraise=True
 )
-def get_llm(
-    model_path: Optional[str] = None,
-    **kwargs
-) -> LlamaCpp:
+def get_llm(model_path: Optional[str] = None, **kwargs) -> LlamaCpp:
     """
     Initialize LlamaCpp LLM with Ryzen optimization.
     
     Guide Reference: Section 4.2.1 (LLM Configuration)
-    Best Practice: Lazy loading with retry logic for robustness
     
     Critical optimizations:
     - f16_kv=true: Halves KV cache memory (~1GB savings)
@@ -172,10 +270,6 @@ def get_llm(
         MemoryError: If insufficient memory
         FileNotFoundError: If model not found
         RuntimeError: If initialization fails after 3 retries
-        
-    Example:
-        >>> llm = get_llm()
-        >>> response = llm.invoke("What is AI?", max_tokens=50)
     """
     # Check memory first (fail-fast)
     check_available_memory(required_gb=CONFIG['performance']['memory_limit_gb'])
@@ -197,8 +291,8 @@ def get_llm(
     
     logger.info(f"Loading LLM from {model_path} ({model_file.stat().st_size / (1024**3):.2f}GB)")
     
-    # Ryzen optimization (Guide Ref: Section 2.4 - AMD Zen2)
-    os.environ['OMP_NUM_THREADS'] = '1'  # Isolate auxiliary libs
+    # Ryzen optimization
+    os.environ['OMP_NUM_THREADS'] = '1'
     
     # Build parameters with environment variable overrides
     llm_params = {
@@ -206,7 +300,7 @@ def get_llm(
         'n_ctx': int(os.getenv('LLAMA_CPP_N_CTX', CONFIG['models']['llm_context_window'])),
         'n_batch': int(os.getenv('LLAMA_CPP_N_BATCH', 512)),
         'n_threads': int(os.getenv('LLAMA_CPP_N_THREADS', CONFIG['performance']['cpu_threads'])),
-        'n_gpu_layers': 0,  # CPU-only (Guide Ref: Section 1 - CPU-first architecture)
+        'n_gpu_layers': 0,  # CPU-only
         'f16_kv': os.getenv('LLAMA_CPP_F16_KV', 'true').lower() == 'true',
         'use_mlock': os.getenv('LLAMA_CPP_USE_MLOCK', 'true').lower() == 'true',
         'use_mmap': os.getenv('LLAMA_CPP_USE_MMAP', 'true').lower() == 'true',
@@ -221,7 +315,7 @@ def get_llm(
     # Merge with provided kwargs
     llm_params.update(kwargs)
     
-    # Filter to valid params (Pydantic compatibility)
+    # Filter to valid params
     filtered_params = filter_llama_kwargs(**llm_params)
     
     logger.info(
@@ -243,6 +337,20 @@ def get_llm(
             f"Check model path, memory availability, and system resources."
         )
 
+async def get_llm_async(model_path: Optional[str] = None, **kwargs) -> LlamaCpp:
+    """
+    Async wrapper for LLM initialization.
+    
+    Args:
+        model_path: Path to model
+        **kwargs: Additional parameters
+        
+    Returns:
+        Initialized LLM
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, lambda: get_llm(model_path, **kwargs))
+
 # ============================================================================
 # EMBEDDINGS INITIALIZATION
 # ============================================================================
@@ -253,15 +361,11 @@ def get_llm(
     retry=retry_if_exception_type((RuntimeError, OSError)),
     reraise=True
 )
-def get_embeddings(
-    model_path: Optional[str] = None,
-    **kwargs
-) -> LlamaCppEmbeddings:
+def get_embeddings(model_path: Optional[str] = None, **kwargs) -> LlamaCppEmbeddings:
     """
     Initialize LlamaCppEmbeddings model.
     
     Guide Reference: Section 4.2.2 (Embeddings - 50% memory savings)
-    Best Practice: Use LlamaCppEmbeddings instead of HuggingFace for CPU efficiency
     
     LlamaCppEmbeddings advantages:
     - 50% memory savings vs HuggingFaceEmbeddings
@@ -275,16 +379,6 @@ def get_embeddings(
         
     Returns:
         Initialized LlamaCppEmbeddings instance
-        
-    Raises:
-        FileNotFoundError: If embedding model not found
-        RuntimeError: If initialization fails after 3 retries
-        
-    Example:
-        >>> embeddings = get_embeddings()
-        >>> vector = embeddings.embed_query("test query")
-        >>> len(vector)
-        384
     """
     if model_path is None:
         model_path = os.getenv(
@@ -302,7 +396,7 @@ def get_embeddings(
     
     logger.info(f"Loading embeddings from {model_path} ({model_file.stat().st_size / (1024**2):.1f}MB)")
     
-    # Embeddings use fewer threads (Guide Ref: Section 4.2 - resource allocation)
+    # Embeddings use fewer threads
     embed_params = {
         'model_path': model_path,
         'n_ctx': int(os.getenv('EMBEDDING_N_CTX', 512)),
@@ -326,12 +420,26 @@ def get_embeddings(
             f"Check model path and system resources."
         )
 
+async def get_embeddings_async(model_path: Optional[str] = None, **kwargs) -> LlamaCppEmbeddings:
+    """
+    Async wrapper for embeddings initialization.
+    
+    Args:
+        model_path: Path to model
+        **kwargs: Additional parameters
+        
+    Returns:
+        Initialized embeddings
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, lambda: get_embeddings(model_path, **kwargs))
+
 # ============================================================================
 # VECTORSTORE INITIALIZATION WITH BACKUP FALLBACK
 # ============================================================================
 
 def get_vectorstore(
-    embeddings: LlamaCppEmbeddings,
+    embeddings: Optional[LlamaCppEmbeddings] = None,
     index_path: Optional[str] = None,
     backup_path: Optional[str] = None
 ) -> Optional[FAISS]:
@@ -339,7 +447,6 @@ def get_vectorstore(
     Load FAISS vectorstore with backup fallback.
     
     Guide Reference: Section 4.2.3 (FAISS Backup Strategy)
-    Best Practice: Automatic failover to backups for reliability
     
     Loading strategy:
     1. Try primary index at /app/XNAi_rag_app/faiss_index
@@ -348,22 +455,21 @@ def get_vectorstore(
     4. If verify_on_load=true, validate with test search
     
     Args:
-        embeddings: Embeddings instance (required)
+        embeddings: Embeddings instance (will be created if None)
         index_path: Primary index path (default: from config)
         backup_path: Backup directory path (default: from config)
         
     Returns:
         Loaded FAISS vectorstore or None if not found
-        
-    Warning:
-        Uses allow_dangerous_deserialization=True (safe with verify_on_load)
-        
-    Example:
-        >>> embeddings = get_embeddings()
-        >>> vs = get_vectorstore(embeddings)
-        >>> if vs:
-        ...     results = vs.similarity_search("query", k=5)
     """
+    # Initialize embeddings if not provided
+    if embeddings is None:
+        try:
+            embeddings = get_embeddings()
+        except Exception as e:
+            logger.error(f"Failed to initialize embeddings for vectorstore: {e}")
+            return None
+    
     if index_path is None:
         index_path = os.getenv(
             "FAISS_INDEX_PATH",
@@ -379,9 +485,7 @@ def get_vectorstore(
     index_dir = Path(index_path)
     backup_dir = Path(backup_path)
     
-    # ========================================================================
     # Try loading primary index
-    # ========================================================================
     if index_dir.exists() and (index_dir / "index.faiss").exists():
         logger.info(f"Loading FAISS index from {index_path}")
         
@@ -389,10 +493,10 @@ def get_vectorstore(
             vectorstore = FAISS.load_local(
                 index_path,
                 embeddings,
-                allow_dangerous_deserialization=True  # Guide Ref: Section 7 - with verify_on_load
+                allow_dangerous_deserialization=True
             )
             
-            # Validate if enabled (Best Practice: verify data integrity)
+            # Validate if enabled
             if CONFIG["backup"]["faiss"].get("verify_on_load", True):
                 try:
                     test_result = vectorstore.similarity_search("test", k=1)
@@ -403,7 +507,7 @@ def get_vectorstore(
                     )
                 except Exception as e:
                     logger.error(f"FAISS validation failed: {e}")
-                    raise  # Re-raise to trigger backup fallback
+                    raise
             else:
                 vector_count = vectorstore.index.ntotal
                 logger.info(f"FAISS index loaded: {vector_count} vectors (validation skipped)")
@@ -415,14 +519,12 @@ def get_vectorstore(
             logger.error(f"Failed to load primary FAISS index: {e}")
             logger.info("Attempting backup fallback...")
     
-    # ========================================================================
-    # Try loading from backups (most recent first)
-    # ========================================================================
+    # Try loading from backups
     if backup_dir.exists():
         backup_dirs = sorted(
             [d for d in backup_dir.iterdir() if d.is_dir() and d.name.startswith("faiss_")],
             key=lambda x: x.stat().st_mtime,
-            reverse=True  # Most recent first
+            reverse=True
         )
         
         max_backups_to_try = CONFIG["backup"]["faiss"].get("max_count", 5)
@@ -445,7 +547,7 @@ def get_vectorstore(
                 vector_count = vectorstore.index.ntotal
                 logger.info(f"Loaded from backup: {backup} ({vector_count} vectors)")
                 
-                # Restore backup to primary location (Best Practice: automatic recovery)
+                # Restore backup to primary location
                 logger.info(f"Restoring backup to primary location: {index_path}")
                 if index_dir.exists():
                     shutil.rmtree(index_dir)
@@ -458,17 +560,37 @@ def get_vectorstore(
                 logger.warning(f"Backup {backup} failed to load: {e}")
                 continue
     
-    # ========================================================================
     # No valid index found
-    # ========================================================================
     logger.warning(
         "No valid FAISS index found (primary or backups). "
         "Run ingestion to create: python3 scripts/ingest_library.py"
     )
     return None
 
+async def get_vectorstore_async(
+    embeddings: Optional[LlamaCppEmbeddings] = None,
+    index_path: Optional[str] = None,
+    backup_path: Optional[str] = None
+) -> Optional[FAISS]:
+    """
+    Async wrapper for vectorstore initialization.
+    
+    Args:
+        embeddings: Embeddings instance
+        index_path: Primary index path
+        backup_path: Backup directory
+        
+    Returns:
+        Loaded vectorstore or None
+    """
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(
+        None,
+        lambda: get_vectorstore(embeddings, index_path, backup_path)
+    )
+
 # ============================================================================
-# CRAWLMODULE INTEGRATION (NEW v0.1.2)
+# CRAWLMODULE INTEGRATION
 # ============================================================================
 
 @retry(
@@ -477,88 +599,46 @@ def get_vectorstore(
     retry=retry_if_exception_type((RuntimeError, OSError)),
     reraise=True
 )
-def get_curator(
-    config_path: Optional[str] = None,
-    cache_dir: Optional[str] = None,
-    **kwargs
-) -> Any:
+def get_curator(cache_dir: Optional[str] = None, **kwargs) -> Any:
     """
     Initialize CrawlModule for library curation.
     
     Guide Reference: Section 4.3 (CrawlModule Integration)
     Guide Reference: Section 9.2 (CrawlModule Architecture)
-    Best Practice: Lazy loading with retry logic
     
     NEW in v0.1.2: Provides access to CrawlModule for:
     - Library curation from 4 sources (Gutenberg, arXiv, PubMed, YouTube)
     - Rate limiting (30 req/min)
     - URL allowlist validation
     - Metadata tracking in knowledge/curator/index.toml
-    - Redis caching with SHA256 hashing
+    - Redis caching
     - Auto-embed to FAISS (optional)
     
     Args:
-        config_path: Path to config.toml (default: from CONFIG)
         cache_dir: Cache directory (default: /app/cache)
         **kwargs: Additional crawler parameters
         
     Returns:
-        Initialized CrawlModule instance
+        Initialized crawler instance (from crawl.py functions)
         
-    Raises:
-        ImportError: If crawl4ai not installed or crawl.py not found
-        RuntimeError: If initialization fails after retries
-        
-    Example:
-        >>> curator = get_curator()
-        >>> results = curator.curate("gutenberg", "classical-works", "Plato", embed=True)
-        >>> print(f"Curated {len(results)} items")
+    Note:
+        Returns a dict of functions from crawl.py module, not a class instance
     """
     try:
-        # Import CrawlModule from crawl.py
+        # Import crawl module
         sys.path.insert(0, '/app/XNAi_rag_app')
-        from crawl import CrawlModule
+        import crawl
+        
+        # Return module itself - it has all the functions we need
+        logger.info("CrawlModule functions loaded successfully")
+        return crawl
+        
     except ImportError as e:
         logger.error("CrawlModule not found - crawl.py may be missing")
         raise ImportError(
             "CrawlModule requires crawl.py in app/XNAi_rag_app/. "
-            "Ensure crawl.py exists with CrawlModule class."
+            "Ensure crawl.py exists."
         ) from e
-    
-    if config_path is None:
-        config_path = get_config_value("crawl.metadata.storage_path", "/knowledge/curator/index.toml")
-    
-    if cache_dir is None:
-        cache_dir = os.getenv("CRAWL_CACHE_DIR", "/app/cache")
-    
-    # Build crawler parameters
-    crawler_params = {
-        'config_path': config_path,
-        'cache_dir': cache_dir,
-        'max_depth': get_config_value("crawl.max_depth", 2),
-        'rate_limit': get_config_value("crawl.rate_limit_per_min", 30),
-        'sanitize_scripts': get_config_value("crawl.sanitize_scripts", True),
-    }
-    
-    crawler_params.update(kwargs)
-    
-    try:
-        curator = CrawlModule(**crawler_params)
-        logger.info("CrawlModule initialized successfully")
-        return curator
-        
-    except Exception as e:
-        logger.error(f"CrawlModule initialization failed: {e}", exc_info=True)
-        raise RuntimeError(f"Failed to initialize curator: {e}")
-
-# Self-Critique: 9/10
-# - Complete error handling ✓
-# - Type hints ✓
-# - Retry logic ✓
-# - Logging ✓
-# - Config-driven ✓
-# - CrawlModule integration ✓
-# - Could add: Health check integration for curator
 
 # ============================================================================
 # CLEANUP UTILITIES
@@ -573,7 +653,6 @@ def cleanup_old_backups(
     Clean up old FAISS backups based on retention policy.
     
     Guide Reference: Section 4.2.3 (Backup Retention)
-    Best Practice: Automated cleanup prevents disk space issues
     
     Args:
         backup_path: Backup directory
@@ -617,12 +696,71 @@ def cleanup_old_backups(
         logger.info(f"Cleanup complete: removed {removed_count} old backups")
 
 # ============================================================================
-# CONVENIENCE FUNCTIONS
+# HEALTH CHECKS
 # ============================================================================
 
-def get_all_components():
+def check_dependencies_ready() -> Dict[str, bool]:
     """
-    Initialize all components (LLM, embeddings, vectorstore, curator) in one call.
+    Check all critical dependencies are initialized and healthy.
     
-    Guide Reference: Section 4.5 (Complete Initialization)
-    Best Practice: Single initialization point for testing
+    Returns:
+        Dict with status of each component
+    """
+    status = {
+        "redis": False,
+        "llm": False,
+        "embeddings": False,
+        "vectorstore": False,
+        "http_client": False,
+    }
+    
+    # Redis
+    try:
+        client = get_redis_client()
+        client.ping()
+        status["redis"] = True
+    except Exception as e:
+        logger.error(f"Redis check failed: {e}")
+    
+    # LLM (expensive, skip in health checks)
+    # status["llm"] = True  # Assume OK if loaded once
+    
+    # Embeddings (expensive, skip in health checks)
+    # status["embeddings"] = True  # Assume OK if loaded once
+    
+    # Vectorstore (check file existence)
+    try:
+        index_path = Path(CONFIG["vectorstore"]["index_path"])
+        status["vectorstore"] = (index_path / "index.faiss").exists()
+    except Exception as e:
+        logger.error(f"Vectorstore check failed: {e}")
+    
+    # HTTP client
+    try:
+        _ = get_http_client()
+        status["http_client"] = True
+    except Exception as e:
+        logger.error(f"HTTP client check failed: {e}")
+    
+    return status
+
+# ============================================================================
+# EXPOSED API
+# ============================================================================
+
+__all__ = [
+    "get_redis_client",
+    "get_redis_client_async",
+    "get_http_client",
+    "shutdown_dependencies",
+    "get_llm",
+    "get_llm_async",
+    "get_embeddings",
+    "get_embeddings_async",
+    "get_vectorstore",
+    "get_vectorstore_async",
+    "get_curator",
+    "cleanup_old_backups",
+    "check_dependencies_ready",
+    "check_available_memory",
+]
