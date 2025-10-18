@@ -26,6 +26,9 @@ from subprocess import Popen, PIPE, DEVNULL
 
 # Chainlit
 import chainlit as cl
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
 
 # Async HTTP client
 from httpx import AsyncClient, ConnectError, TimeoutException, HTTPStatusError
