@@ -1,6 +1,5 @@
-
 # Xoe-NovAi Phase 1 v0.1.2 Makefile
-# Purpose: Production utilities for setup, docker management, testing, debugging
+# Purpose: Production utilities for setup, docker, testing, debugging
 # Guide Reference: Section 5.3 (Health Checks), 2.4 (Validation)
 # Last Updated: 2025-10-18
 
@@ -13,7 +12,7 @@ help: ## Show this help message
 download-models: ## Download models and embeddings
 	@echo "Downloading models..."
 	mkdir -p models embeddings
-	wget -P models https://huggingface.co/unsloth/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-UD-Q5_K_XL.gguf?download=true
+	wget -P models https://huggingface.co/b4rtaz/gemma-3-4b-it-UD-Q5_K_XL.gguf/resolve/main/gemma-3-4b-it-UD-Q5_K_XL.gguf
 	wget -P embeddings https://huggingface.co/nomic-ai/nomic-embed-text-v1.5/resolve/main/all-MiniLM-L12-v2.Q8_0.gguf
 
 validate: ## Run configuration validation
