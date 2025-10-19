@@ -12,8 +12,10 @@ help: ## Show this help message
 download-models: ## Download models and embeddings
 	@echo "Downloading models..."
 	mkdir -p models embeddings
-	wget -P models https://huggingface.co/b4rtaz/gemma-3-4b-it-UD-Q5_K_XL.gguf/resolve/main/gemma-3-4b-it-UD-Q5_K_XL.gguf
-	wget -P embeddings https://huggingface.co/nomic-ai/nomic-embed-text-v1.5/resolve/main/all-MiniLM-L12-v2.Q8_0.gguf
+	wget -P models https://huggingface.co/unsloth/gemma-3-4b-it-GGUF/resolve/main/gemma-3-4b-it-UD-Q5_K_XL.gguf?download=true
+#   wget -P embeddings https://huggingface.co/leliuga/all-MiniLM-L12-v2-GGUF/resolve/main/all-MiniLM-L12-v2.F16.gguf?download=true
+    wget -P embeddings https://huggingface.co/leliuga/all-MiniLM-L12-v2-GGUF/resolve/main/all-MiniLM-L12-v2.Q8_0.gguf?download=true
+#	wget -P embeddings https://huggingface.co/prithivida/all-MiniLM-L6-v2-gguf/resolve/main/all-MiniLM-L6-v2-q8_0.gguf?download=true
 
 validate: ## Run configuration validation
 	@echo "Validating configuration..."
