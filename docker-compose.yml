@@ -1,13 +1,13 @@
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 Docker Compose Configuration (FIXED)
+# Xoe-NovAi Phase 1 v0.1.3 Docker Compose Configuration
 # ============================================================================
 # Purpose: Multi-service orchestration for RAG stack with CrawlModule
 # Guide Reference: Section 6 (Complete docker-compose.yml)
-# Last Updated: 2025-10-13
-# CRITICAL FIXES:
-#   - Removed obsolete 'version' key (Compose v2)
-#   - Removed cap_drop from Redis (conflicts with user 999)
-#   - Updated volume mounts for library/ and knowledge/
+# Last Updated: 2025-10-19
+# Changes from v0.1.2:
+#   - Added explicit directory creation guidance in comments
+#   - Clarified bind mount vs named volume strategy
+#   - Added troubleshooting notes for permission issues
 # ============================================================================
 
 services:
@@ -17,7 +17,6 @@ services:
   redis:
     image: redis:7.4.1
     container_name: xnai_redis
-    # Use native Redis command (NOT custom entrypoint)
     command: >
       redis-server
       --requirepass ${REDIS_PASSWORD}
@@ -42,7 +41,6 @@ services:
     networks:
       - xnai_network
     restart: unless-stopped
-    # Redis runs as user 999:999 - don't drop capabilities
     security_opt:
       - no-new-privileges:true
     tmpfs:
@@ -63,25 +61,29 @@ services:
       - ./models:/models:ro
       - ./embeddings:/embeddings:ro
       
-      # Development: Bind mounts (default, comment for production)
-      - ./library:/library                # Curated library (stack root)
-      - ./knowledge:/knowledge            # Phase 2 agent knowledge (stack root)
-      - ./data/faiss_index:/app/XNAi_rag_app/faiss_index
-      - ./data/faiss_index.bak:/app/XNAi_rag_app/faiss_index.bak
-      - ./backups:/backups                # FAISS backups
+      # IMPORTANT: Create these directories with correct permissions BEFORE starting:
+      # sudo mkdir -p library knowledge data/faiss_index backups
+      # sudo chown -R 1001:1001 library knowledge data/faiss_index backups
       
-      # Production: Named volumes (uncomment for production)
+      # Development: Bind mounts (default)
+      - ./library:/library
+      - ./knowledge:/knowledge
+      - ./data/faiss_index:/app/XNAi_rag_app/faiss_index
+      - ./backups:/backups
+      - ./data/prometheus-multiproc:/prometheus_data
+      
+      # Development: Live code reload (comment for production)
+      - ./app/XNAi_rag_app:/app/XNAi_rag_app
+      
+      # Production: Use named volumes instead (see bottom of file)
       # - library:/library
       # - knowledge:/knowledge
       # - faiss_index:/app/XNAi_rag_app/faiss_index
       # - faiss_backup:/backups
       
-      # Common mounts
-      - ./data/prometheus-multiproc:/prometheus_data
-      - ./app/XNAi_rag_app:/app/XNAi_rag_app
     environment:
       - RAG_API_URL=http://rag:8000
-      - MODEL_PATH=/models/gemma-3-4b-it-UD-Q5_K_XL.gguf
+      - LLM_MODEL_PATH=/models/gemma-3-4b-it-UD-Q5_K_XL.gguf
       - EMBEDDING_MODEL_PATH=/embeddings/all-MiniLM-L12-v2.Q8_0.gguf
       - RAG_PER_DOC_CHARS=${RAG_PER_DOC_CHARS:-500}
       - RAG_TOTAL_CHARS=${RAG_TOTAL_CHARS:-2048}
@@ -130,12 +132,13 @@ services:
         BUILDKIT_INLINE_CACHE: 1
     container_name: xnai_chainlit_ui
     volumes:
+      # Development: Live code reload (comment for production)
       - ./app/XNAi_rag_app:/app/XNAi_rag_app
     environment:
-      - CHAINLIT_PORT=${CHAINLIT_PORT}
-      - CHAINLIT_NO_TELEMETRY=${CHAINLIT_NO_TELEMETRY}
-      - RAG_API_URL=${RAG_API_URL}
-      - LOG_LEVEL=${LOG_LEVEL}
+      - CHAINLIT_PORT=${CHAINLIT_PORT:-8001}
+      - CHAINLIT_NO_TELEMETRY=${CHAINLIT_NO_TELEMETRY:-true}
+      - RAG_API_URL=${RAG_API_URL:-http://rag:8000}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     depends_on:
       rag:
         condition: service_healthy
@@ -163,7 +166,7 @@ services:
       - /app/XNAi_rag_app/tmp:mode=1777,size=512m
 
   # ==========================================================================
-  # CRAWLER SERVICE - CrawlModule v0.1.7 (NEW v0.1.2)
+  # CRAWLER SERVICE - CrawlModule v0.1.7
   # ==========================================================================
   crawler:
     build:
@@ -173,18 +176,23 @@ services:
         BUILDKIT_INLINE_CACHE: 1
     container_name: xnai_crawler
     volumes:
-      # Development: Bind mounts (default, comment for production)
-      - ./library:/library                # Write curated documents
-      - ./knowledge:/knowledge            # Write metadata
-      - ./data/cache:/app/cache           # Crawler cache
+      # IMPORTANT: Ensure directories exist with correct permissions:
+      # sudo mkdir -p library knowledge data/cache
+      # sudo chown -R 1001:1001 library knowledge data/cache
       
-      # Production: Named volumes (uncomment for production)
+      # Development: Bind mounts (default)
+      - ./library:/library
+      - ./knowledge:/knowledge
+      - ./data/cache:/app/cache
+      
+      # Development: Live code reload (comment for production)
+      - ./app/XNAi_rag_app:/app/XNAi_rag_app
+      
+      # Production: Use named volumes instead
       # - library:/library
       # - knowledge:/knowledge
       # - crawler_cache:/app/cache
       
-      # Common mounts
-      - ./app/XNAi_rag_app:/app/XNAi_rag_app
     environment:
       - CRAWL4AI_NO_TELEMETRY=${CRAWL4AI_NO_TELEMETRY:-true}
       - CRAWL4AI_MAX_DEPTH=${CRAWL4AI_MAX_DEPTH:-2}
@@ -197,6 +205,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - LIBRARY_PATH=/library
+      - KNOWLEDGE_PATH=/knowledge
     depends_on:
       redis:
         condition: service_healthy
@@ -252,38 +262,34 @@ networks:
 #     driver: local
 #   prometheus_multiproc:
 #     driver: local
-#   logs:
-#     driver: local
 
 # ============================================================================
-# PRODUCTION DEPLOYMENT INSTRUCTIONS
+# TROUBLESHOOTING PERMISSION ISSUES
 # ============================================================================
-# 1. Create host directories:
-#    mkdir -p library knowledge
-#    chown 1001:1001 library knowledge
+# If you encounter permission errors:
 #
-# 2. Create named volumes:
-#    docker volume create xnai_library
-#    docker volume create xnai_knowledge
+# 1. Verify directories exist with correct ownership:
+#    sudo mkdir -p library knowledge data/faiss_index data/cache backups
+#    sudo chown -R 1001:1001 library knowledge data backups
 #
-# 3. Initialize volumes with data:
-#    docker run --rm -v xnai_library:/library -v ./library:/host \
-#      busybox sh -c "cp -r /host/* /library/"
-#    docker run --rm -v xnai_knowledge:/knowledge -v ./knowledge:/host \
-#      busybox sh -c "cp -r /host/* /knowledge/"
+# 2. Check .env file has correct UID/GID:
+#    APP_UID=1001
+#    APP_GID=1001
 #
-# 4. Update docker-compose.yml:
-#    - Comment bind mount lines (./library:/library, etc.)
-#    - Uncomment named volume lines (library:/library, etc.)
-#    - Uncomment volumes section at bottom
+# 3. Rebuild containers to pick up ownership changes:
+#    sudo docker compose down
+#    sudo docker compose build --no-cache
+#    sudo docker compose up -d
 #
-# 5. Deploy:
-#    docker compose down
-#    docker compose up -d
+# 4. Verify container user matches:
+#    sudo docker exec xnai_rag_api id
+#    # Should show: uid=1001(appuser) gid=1001(appuser)
 #
-# 6. Verify:
-#    docker volume ls | grep xnai
-#    docker inspect xnai_rag | grep -E "library|knowledge"
-#    docker run --rm -v xnai_library:/library busybox ls -la /library
+# 5. Check mounted directory permissions inside container:
+#    sudo docker exec xnai_rag_api ls -la /library
+#    sudo docker exec xnai_crawler ls -la /library
+#
+# 6. If issues persist, temporarily use root user for debugging:
+#    user: "0:0"  # root - ONLY FOR DEBUGGING
 #
 # ============================================================================

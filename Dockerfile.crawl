@@ -1,15 +1,18 @@
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 - CrawlModule Service Dockerfile
+# Xoe-NovAi Phase 1 v0.1.3 - CrawlModule Service Dockerfile (FIXED)
 # ============================================================================
 # Purpose: Library curation service for 4 external sources
-# Last Updated: 2025-10-18
-# CRITICAL: Lines 102-105 FIXED - USER command separated from RUN
+# Last Updated: 2025-10-19
+# CRITICAL FIXES:
+#   - Removed trailing slashes from COPY command (line 108)
+#   - Added explicit /app/XNAi_rag_app directory creation (line 95)
+#   - Moved file verification AFTER proper directory setup (line 111)
 # ============================================================================
 
 FROM python:3.12-slim AS builder
 
 LABEL maintainer="Xoe-NovAi Team"
-LABEL version="0.1.2"
+LABEL version="0.1.3"
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -39,7 +42,7 @@ RUN ls -lh /wheels/ && \
 FROM python:3.12-slim AS runtime
 
 LABEL maintainer="Xoe-NovAi Team"
-LABEL version="0.1.2"
+LABEL version="0.1.3"
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -61,10 +64,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
+# Create user and base directories
 RUN groupadd -g 1001 appuser && \
-    useradd -m -u 1001 -g appuser -s /bin/bash appuser && \
-    mkdir -p /app/XNAi_rag_app && \
-    chown -R appuser:appuser /app
+    useradd -m -u 1001 -g appuser -s /bin/bash appuser
 
 COPY --from=builder /wheels /wheels
 
@@ -78,7 +80,9 @@ RUN python3 -c "import crawl4ai; print(f'crawl4ai {crawl4ai.__version__} install
 
 USER root
 
+# CRITICAL FIX: Create ALL necessary directories including /app/XNAi_rag_app
 RUN mkdir -p \
+    /app/XNAi_rag_app \
     /app/cache \
     /library \
     /knowledge/curator && \
@@ -87,6 +91,7 @@ RUN mkdir -p \
     /library \
     /knowledge
 
+# Create allowlist file
 RUN echo "*.gutenberg.org" > /app/allowlist.txt && \
     echo "*.arxiv.org" >> /app/allowlist.txt && \
     echo "*.nih.gov" >> /app/allowlist.txt && \
@@ -96,10 +101,11 @@ RUN echo "*.gutenberg.org" > /app/allowlist.txt && \
 
 WORKDIR /app/XNAi_rag_app
 
-COPY --chown=appuser:appuser app/XNAi_rag_app/ /app/XNAi_rag_app/
+# CRITICAL FIX: Remove trailing slashes from COPY (matches Dockerfile.api and Dockerfile.chainlit)
+COPY --chown=appuser:appuser app/XNAi_rag_app /app/XNAi_rag_app
 
-# LINES 102-105: CRITICAL FIX - Separated RUN and USER
-RUN test -f /app/XNAi_rag_app/crawl.py || (echo "ERROR: crawl.py not found" && exit 1) && \
+# CRITICAL FIX: Verify files AFTER copy
+RUN test -f /app/XNAi_rag_app/crawl.py || (echo "ERROR: crawl.py not found" && ls -la /app/XNAi_rag_app && exit 1) && \
     test -f /app/XNAi_rag_app/config_loader.py || (echo "ERROR: config_loader.py not found" && exit 1)
 
 USER appuser
@@ -108,3 +114,24 @@ HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=5 \
     CMD python3 -c "import crawl4ai; print('OK')" || exit 1
 
 CMD ["tail", "-f", "/dev/null"]
+
+# ============================================================================
+# BUILD INSTRUCTIONS
+# ============================================================================
+# Build:
+#   sudo docker build -f Dockerfile.crawl -t xnai-crawler:0.1.3 .
+#
+# Run standalone:
+#   sudo docker run -d --name xnai_crawler \
+#     -v ./library:/library \
+#     -v ./knowledge:/knowledge \
+#     -e CRAWL4AI_NO_TELEMETRY=true \
+#     xnai-crawler:0.1.3
+#
+# Verify:
+#   sudo docker exec xnai_crawler python3 -c "import crawl4ai; print('OK')"
+#   sudo docker exec xnai_crawler ls -la /app/XNAi_rag_app
+#
+# Debug:
+#   sudo docker run -it --rm xnai-crawler:0.1.3 /bin/bash
+# ============================================================================

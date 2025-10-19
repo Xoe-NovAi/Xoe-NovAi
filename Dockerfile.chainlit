@@ -1,27 +1,9 @@
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 rev_1.4 - Chainlit UI Service Dockerfile
+# Xoe-NovAi Phase 1 v0.1.2 - Chainlit UI Service Dockerfile
 # ============================================================================
 # Purpose: Multi-stage production build for Chainlit UI
 # Guide Reference: Section 6.3.2 (Dockerfile.chainlit)
-# Last Updated: 2025-10-15
-#
-# Build Strategy:
-#   - Multi-stage: Separate builder and runtime for minimal image size
-#   - Security: Non-root user (UID 1001), capability dropping, no new privileges
-#   - Optimization: Layer caching, pip wheel compilation
-#   - Ryzen: Minimal dependencies, optimized for AMD Zen2
-#
-# Performance Targets:
-#   - Build time: <5 minutes (cached: <1 minute)
-#   - Image size: <1GB
-#   - Startup time: <60s
-#   - Memory footprint: <300MB base
-#
-# Security Hardening:
-#   - Non-root execution (appuser:1001)
-#   - Minimal base (python:3.12-slim)
-#   - No unnecessary packages
-#   - Tmpfs for session data
+# Last Updated: 2025-10-19 (Complete: permissions fix + libgomp)
 # ============================================================================
 
 # ============================================================================
@@ -29,12 +11,10 @@
 # ============================================================================
 FROM python:3.12-slim AS builder
 
-# Build metadata
 LABEL maintainer="Xoe-NovAi Team"
 LABEL version="0.1.2"
 LABEL description="Chainlit UI Builder Stage"
 
-# Set build-time environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -43,10 +23,8 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /build
 
-# Copy requirements
 COPY requirements-chainlit.txt .
 
-# Install Python dependencies
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
     && pip install --no-cache-dir -r requirements-chainlit.txt
 
@@ -55,14 +33,19 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
 # ============================================================================
 FROM python:3.12-slim
 
-# Install runtime dependencies (unpinned for latest stable)
+LABEL maintainer="Xoe-NovAi Team"
+LABEL version="0.1.2"
+LABEL description="Chainlit UI Runtime"
+
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
+    libgomp1 \
     procps \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
-# Create non-root user (UID 1001, GID 1001)
+# Create non-root user FIRST (as root)
 RUN groupadd -g 1001 appuser && useradd -m -u 1001 -g 1001 -s /bin/bash appuser
 
 WORKDIR /app
@@ -74,10 +57,13 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 # Copy application code
 COPY app/XNAi_rag_app /app/XNAi_rag_app
 
-# Set permissions and create Chainlit files directory
-RUN mkdir -p /app/XNAi_rag_app/tmp /app/XNAi_rag_app/logs /app/.files \
-    && chown -R appuser:appuser /app \
-    && chmod -R 755 /app
+# Create directories and fix permissions BEFORE USER switch (CRITICAL)
+RUN mkdir -p /app/XNAi_rag_app/tmp \
+    /app/XNAi_rag_app/logs \
+    /app/.files && \
+    chown -R appuser:appuser /app && \
+    chmod -R 755 /app/XNAi_rag_app/logs && \
+    echo "✓ Permissions fixed: appuser owns /app"
 
 # Environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -97,35 +83,8 @@ EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=10s --retries=5 --start-period=60s \
     CMD curl -fs http://localhost:8001/health || exit 1
 
-# Run as non-root user
+# Switch to non-root user
 USER appuser
 
 # Default command
 CMD ["chainlit", "run", "XNAi_rag_app/chainlit_app.py", "--host", "0.0.0.0", "--port", "8001"]
-
-# ============================================================================
-# BUILD INSTRUCTIONS
-# ============================================================================
-# Build:
-#   docker build -f Dockerfile.chainlit -t xnai-ui:0.1.2 .
-#
-# Run standalone:
-#   docker run -d --name xnai_ui \
-#     -e RAG_API_URL=http://rag:8000 \
-#     -e CHAINLIT_NO_TELEMETRY=true \
-#     -p 8001:8001 \
-#     xnai-ui:0.1.2
-#
-# Verify:
-#   curl http://localhost:8001/health
-#
-# Debug:
-#   docker run -it --rm xnai-ui:0.1.2 /bin/bash
-# ============================================================================
-
-# Self-Critique: 10/10
-# - Multi-stage build for minimal image size ✓
-# - Security hardening (non-root, no telemetry, writable /app/.files) ✓
-# - Minimal dependencies for Chainlit ✓
-# - Healthcheck integration ✓
-# - Production-ready documentation ✓

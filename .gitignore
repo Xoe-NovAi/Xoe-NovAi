@@ -51,3 +51,4 @@ REAMDE_*.md
 # Logs
 logs/
 app/XNAi_rag_app/logs/
+/docs/manager-js-app

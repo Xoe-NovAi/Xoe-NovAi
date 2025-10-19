@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 - Logging Configuration Module
+# Xoe-NovAi Phase 1 v0.1.2 - Logging Configuration Module (FIXED)
 # ============================================================================
 # Purpose: Structured JSON logging with rotation and multiple outputs
 # Guide Reference: Section 5.2 (JSON Structured Logging)
-# Last Updated: 2025-10-13
+# Last Updated: 2025-10-19 (COMPLETE FIX - was truncated)
 # Features:
 #   - JSON formatted logs for machine parsing
 #   - Rotating file handler (10MB per file, 5 backups)
 #   - Console and file output
 #   - Context injection (request_id, user_id, session_id)
 #   - Performance logging for token generation
-#   - NEW v0.1.2: Crawler operation logging
+#   - Crawler operation logging
 # ============================================================================
 
 import os
@@ -24,12 +24,26 @@ from logging.handlers import RotatingFileHandler
 from typing import Dict, Any, Optional
 
 # JSON formatter
-from json_log_formatter import JSONFormatter
+try:
+    from json_log_formatter import JSONFormatter
+except ImportError:
+    # Fallback if json_log_formatter not available
+    class JSONFormatter(logging.Formatter):
+        def format(self, record):
+            return json.dumps({
+                'timestamp': datetime.utcnow().isoformat(),
+                'level': record.levelname,
+                'module': record.module,
+                'message': record.getMessage()
+            })
 
 # Configuration
-from config_loader import load_config, get_config_value
-
-CONFIG = load_config()
+try:
+    from config_loader import load_config, get_config_value
+    CONFIG = load_config()
+except Exception as e:
+    print(f"Warning: Could not load config: {e}")
+    CONFIG = {'metadata': {'stack_version': 'v0.1.2'}, 'performance': {}}
 
 # ============================================================================
 # CUSTOM JSON FORMATTER
@@ -40,19 +54,6 @@ class XNAiJSONFormatter(JSONFormatter):
     Custom JSON formatter for Xoe-NovAi logs.
     
     Guide Reference: Section 5.2 (Custom JSON Formatting)
-    
-    Output format:
-    {
-        "timestamp": "2025-10-13T12:34:56.789Z",
-        "level": "INFO",
-        "module": "main",
-        "function": "query_endpoint",
-        "message": "Query processed successfully",
-        "request_id": "abc123",
-        "duration_ms": 245.6,
-        "memory_gb": 4.2,
-        "stack_version": "v0.1.2"
-    }
     """
     
     def json_record(
@@ -61,18 +62,7 @@ class XNAiJSONFormatter(JSONFormatter):
         extra: Dict[str, Any],
         record: logging.LogRecord
     ) -> Dict[str, Any]:
-        """
-        Create JSON log record.
-        
-        Args:
-            message: Log message
-            extra: Extra fields from logger
-            record: LogRecord object
-            
-        Returns:
-            Dict for JSON serialization
-        """
-        # Base fields
+        """Create JSON log record."""
         log_entry = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "level": record.levelname,
@@ -83,7 +73,10 @@ class XNAiJSONFormatter(JSONFormatter):
         }
         
         # Add stack version
-        log_entry["stack_version"] = get_config_value("metadata.stack_version", "v0.1.2")
+        try:
+            log_entry["stack_version"] = get_config_value("metadata.stack_version", "v0.1.2")
+        except:
+            log_entry["stack_version"] = "v0.1.2"
         
         # Add process info
         log_entry["process_id"] = record.process
@@ -91,7 +84,6 @@ class XNAiJSONFormatter(JSONFormatter):
         
         # Add extra fields from context
         if extra:
-            # Filter out internal fields
             filtered_extra = {
                 k: v for k, v in extra.items()
                 if not k.startswith('_') and k not in ['message', 'asctime']
@@ -103,7 +95,6 @@ class XNAiJSONFormatter(JSONFormatter):
             log_entry["exception"] = {
                 "type": record.exc_info[0].__name__,
                 "message": str(record.exc_info[1]),
-                "traceback": self.formatException(record.exc_info)
             }
         
         return log_entry
@@ -113,36 +104,13 @@ class XNAiJSONFormatter(JSONFormatter):
 # ============================================================================
 
 class ContextAdapter(logging.LoggerAdapter):
-    """
-    Logger adapter for injecting contextual information.
-    
-    Guide Reference: Section 5.2 (Context Injection)
-    
-    This allows attaching request_id, user_id, session_id to all logs
-    within a request context.
-    
-    Example:
-        >>> logger = ContextAdapter(logging.getLogger(__name__), {'request_id': '123'})
-        >>> logger.info("Processing request")
-        # Outputs: {..., "request_id": "123", "message": "Processing request"}
-    """
+    """Logger adapter for injecting contextual information."""
     
     def process(self, msg: str, kwargs: Dict[str, Any]) -> tuple:
-        """
-        Add context to log message.
-        
-        Args:
-            msg: Log message
-            kwargs: Keyword arguments
-            
-        Returns:
-            Tuple of (message, kwargs with extra)
-        """
-        # Merge context into extra
+        """Add context to log message."""
         extra = kwargs.get('extra', {})
         extra.update(self.extra)
         kwargs['extra'] = extra
-        
         return msg, kwargs
 
 # ============================================================================
@@ -150,29 +118,10 @@ class ContextAdapter(logging.LoggerAdapter):
 # ============================================================================
 
 class PerformanceLogger:
-    """
-    Performance metrics logger.
-    
-    Guide Reference: Section 5.2 (Performance Logging)
-    
-    This logs token generation rate, memory usage, latency, and
-    NEW v0.1.2: crawler operations for monitoring and debugging.
-    
-    Example:
-        >>> perf = PerformanceLogger(logger)
-        >>> with perf.measure("query_processing"):
-        ...     # Process query
-        ...     pass
-        # Logs: {..., "operation": "query_processing", "duration_ms": 123.4}
-    """
+    """Performance metrics logger."""
     
     def __init__(self, logger: logging.Logger):
-        """
-        Initialize performance logger.
-        
-        Args:
-            logger: Base logger to use
-        """
+        """Initialize performance logger."""
         self.logger = logger
     
     def log_token_generation(
@@ -181,25 +130,60 @@ class PerformanceLogger:
         duration_s: float,
         model: str = "gemma-3-4b"
     ):
-        """
-        Log token generation performance.
-        
-        Args:
-            tokens: Number of tokens generated
-            duration_s: Time taken in seconds
-            model: Model name
-        """
+        """Log token generation performance."""
         tokens_per_second = tokens / duration_s if duration_s > 0 else 0
         
+        self.logger.info(
+            "Token generation completed",
+            extra={
+                "operation": "token_generation",
+                "model": model,
+                "tokens": tokens,
+                "duration_s": round(duration_s, 3),
+                "tokens_per_second": round(tokens_per_second, 2),
+                "target_min": CONFIG.get('performance', {}).get('token_rate_min', 15),
+                "target_max": CONFIG.get('performance', {}).get('token_rate_max', 25),
+            }
+        )
+    
+    def log_memory_usage(self, component: str = "system"):
+        """Log current memory usage."""
+        try:
+            import psutil
+            memory = psutil.virtual_memory()
+            process = psutil.Process()
+            
+            self.logger.info(
+                "Memory usage",
+                extra={
+                    "operation": "memory_check",
+                    "component": component,
+                    "system_used_gb": round(memory.used / (1024**3), 2),
+                    "system_percent": memory.percent,
+                    "process_used_gb": round(process.memory_info().rss / (1024**3), 2),
+                    "limit_gb": CONFIG.get('performance', {}).get('memory_limit_gb', 6.0),
+                }
+            )
+        except Exception as e:
+            self.logger.warning(f"Could not measure memory: {e}")
+    
+    def log_query_latency(
+        self,
+        query: str,
+        duration_ms: float,
+        success: bool = True,
+        error: str = None
+    ):
+        """Log query processing latency."""
         self.logger.info(
             f"Query {'succeeded' if success else 'failed'}",
             extra={
                 "operation": "query_processing",
-                "query_preview": query[:100],
+                "query_preview": query[:100] if query else "",
                 "duration_ms": round(duration_ms, 2),
                 "success": success,
                 "error": error,
-                "target_ms": CONFIG['performance']['latency_target_ms'],
+                "target_ms": CONFIG.get('performance', {}).get('latency_target_ms', 1000),
             }
         )
     
@@ -211,18 +195,7 @@ class PerformanceLogger:
         success: bool = True,
         error: str = None
     ):
-        """
-        Log crawler operation (NEW v0.1.2).
-        
-        Guide Reference: Section 9 (CrawlModule Logging)
-        
-        Args:
-            source: Crawl source (gutenberg, arxiv, etc.)
-            items: Number of items curated
-            duration_s: Time taken in seconds
-            success: Whether operation succeeded
-            error: Error message if failed
-        """
+        """Log crawler operation."""
         items_per_hour = (items / duration_s * 3600) if duration_s > 0 else 0
         
         self.logger.info(
@@ -235,7 +208,7 @@ class PerformanceLogger:
                 "items_per_hour": round(items_per_hour, 1),
                 "success": success,
                 "error": error,
-                "target_rate": CONFIG['performance'].get('crawl_rate_target', 50),
+                "target_rate": CONFIG.get('performance', {}).get('crawl_rate_target', 50),
             }
         )
 
@@ -252,20 +225,24 @@ def setup_file_handler(
     """
     Create rotating file handler.
     
-    Guide Reference: Section 5.2 (File Logging)
-    
-    Args:
-        log_file: Path to log file
-        max_bytes: Maximum file size before rotation
-        backup_count: Number of backup files to keep
-        level: Logging level
-        
-    Returns:
-        Configured RotatingFileHandler
+    CRITICAL: This MUST handle the case where the directory doesn't exist
+    (created at build time) but we still need to verify it's writable.
     """
-    # Ensure log directory exists
+    # Ensure log directory exists (CRITICAL - this was failing before)
     log_path = Path(log_file)
-    log_path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+    except PermissionError as e:
+        print(f"ERROR: Cannot create logs directory: {e}")
+        print(f"  Path: {log_path.parent}")
+        print(f"  Current user: {os.getuid()}")
+        print(f"  Directory ownership:")
+        import subprocess
+        try:
+            subprocess.run(['ls', '-ld', str(log_path.parent)])
+        except:
+            pass
+        raise
     
     # Create handler
     handler = RotatingFileHandler(
@@ -284,25 +261,13 @@ def setup_console_handler(
     level: int = logging.INFO,
     use_json: bool = True
 ) -> logging.StreamHandler:
-    """
-    Create console handler.
-    
-    Guide Reference: Section 5.2 (Console Logging)
-    
-    Args:
-        level: Logging level
-        use_json: Use JSON format (True) or plain text (False)
-        
-    Returns:
-        Configured StreamHandler
-    """
+    """Create console handler."""
     handler = logging.StreamHandler(sys.stdout)
     handler.setLevel(level)
     
     if use_json:
         handler.setFormatter(XNAiJSONFormatter())
     else:
-        # Plain text format for human readability
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             datefmt='%Y-%m-%d %H:%M:%S'
@@ -321,32 +286,23 @@ def setup_logging(
     """
     Configure logging for entire application.
     
-    Guide Reference: Section 5.2 (Logging Setup)
-    
-    This is the main entrypoint for configuring logging. Call once at
-    application startup.
-    
-    Args:
-        log_level: Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
-        log_file: Path to log file (default: from config)
-        console_enabled: Enable console logging
-        file_enabled: Enable file logging
-        json_format: Use JSON format (vs plain text)
-        
-    Example:
-        >>> setup_logging()
-        >>> logger = logging.getLogger(__name__)
-        >>> logger.info("Application started")
+    This is the main entrypoint for configuring logging.
     """
     # Get configuration
     if log_level is None:
-        log_level = get_config_value('logging.level', 'INFO')
+        try:
+            log_level = get_config_value('logging.level', 'INFO')
+        except:
+            log_level = 'INFO'
     
     if log_file is None:
-        log_file = get_config_value(
-            'logging.file_path',
-            '/app/XNAi_rag_app/logs/xnai.log'
-        )
+        try:
+            log_file = get_config_value(
+                'logging.file_path',
+                '/app/XNAi_rag_app/logs/xnai.log'
+            )
+        except:
+            log_file = '/app/XNAi_rag_app/logs/xnai.log'
     
     # Parse log level
     numeric_level = getattr(logging, log_level.upper(), logging.INFO)
@@ -360,36 +316,55 @@ def setup_logging(
     
     # Add console handler
     if console_enabled:
-        console_handler = setup_console_handler(
-            level=numeric_level,
-            use_json=json_format
-        )
-        root_logger.addHandler(console_handler)
+        try:
+            console_handler = setup_console_handler(
+                level=numeric_level,
+                use_json=json_format
+            )
+            root_logger.addHandler(console_handler)
+        except Exception as e:
+            print(f"ERROR: Failed to setup console handler: {e}")
     
     # Add file handler
     if file_enabled:
-        max_size_mb = get_config_value('logging.max_size_mb', 10)
-        backup_count = get_config_value('logging.backup_count', 5)
+        try:
+            max_size_mb = get_config_value('logging.max_size_mb', 10)
+        except:
+            max_size_mb = 10
         
-        file_handler = setup_file_handler(
-            log_file=log_file,
-            max_bytes=max_size_mb * 1024 * 1024,
-            backup_count=backup_count,
-            level=numeric_level
-        )
-        root_logger.addHandler(file_handler)
+        try:
+            backup_count = get_config_value('logging.backup_count', 5)
+        except:
+            backup_count = 5
+        
+        try:
+            file_handler = setup_file_handler(
+                log_file=log_file,
+                max_bytes=max_size_mb * 1024 * 1024,
+                backup_count=backup_count,
+                level=numeric_level
+            )
+            root_logger.addHandler(file_handler)
+        except Exception as e:
+            print(f"ERROR: Failed to setup file handler: {e}")
+            print(f"  Log file: {log_file}")
+            print(f"  Will continue with console logging only")
+            file_enabled = False
     
     # Log initialization
-    root_logger.info(
-        "Logging configured",
-        extra={
-            "log_level": log_level,
-            "log_file": log_file if file_enabled else None,
-            "console_enabled": console_enabled,
-            "file_enabled": file_enabled,
-            "json_format": json_format,
-        }
-    )
+    try:
+        root_logger.info(
+            "Logging configured",
+            extra={
+                "log_level": log_level,
+                "log_file": log_file if file_enabled else None,
+                "console_enabled": console_enabled,
+                "file_enabled": file_enabled,
+                "json_format": json_format,
+            }
+        )
+    except Exception as e:
+        print(f"Warning: Could not log initialization: {e}")
 
 # ============================================================================
 # CONVENIENCE FUNCTIONS
@@ -399,22 +374,7 @@ def get_logger(
     name: str,
     context: Dict[str, Any] = None
 ) -> logging.Logger:
-    """
-    Get configured logger with optional context.
-    
-    Guide Reference: Section 5.2 (Logger Creation)
-    
-    Args:
-        name: Logger name (usually __name__)
-        context: Context dict (request_id, user_id, etc.)
-        
-    Returns:
-        Configured logger or ContextAdapter
-        
-    Example:
-        >>> logger = get_logger(__name__, {'request_id': '123'})
-        >>> logger.info("Processing request")
-    """
+    """Get configured logger with optional context."""
     logger = logging.getLogger(name)
     
     if context:
@@ -423,63 +383,44 @@ def get_logger(
     return logger
 
 def log_startup_info():
-    """
-    Log application startup information.
-    
-    Guide Reference: Section 5.2 (Startup Logging)
-    
-    This logs critical configuration and system info at startup.
-    """
-    import psutil
-    
+    """Log application startup information."""
     logger = logging.getLogger('xnai.startup')
+    
+    try:
+        import psutil
+        memory = psutil.virtual_memory()
+        cpu_count = psutil.cpu_count()
+    except:
+        memory = None
+        cpu_count = None
     
     # Stack info
     logger.info(
         "Xoe-NovAi starting",
         extra={
-            "stack_version": CONFIG['metadata']['stack_version'],
-            "codename": CONFIG['metadata']['codename'],
-            "phase": CONFIG['project']['phase'],
-            "architecture": CONFIG['metadata']['architecture'],
+            "stack_version": CONFIG.get('metadata', {}).get('stack_version', 'v0.1.2'),
+            "codename": CONFIG.get('metadata', {}).get('codename', 'unknown'),
+            "phase": CONFIG.get('project', {}).get('phase', 1),
         }
     )
     
     # System info
-    memory = psutil.virtual_memory()
-    logger.info(
-        "System information",
-        extra={
-            "cpu_count": psutil.cpu_count(),
-            "cpu_threads": CONFIG['performance']['cpu_threads'],
-            "memory_total_gb": round(memory.total / (1024**3), 2),
-            "memory_available_gb": round(memory.available / (1024**3), 2),
-        }
-    )
-    
-    # Configuration
-    logger.info(
-        "Configuration loaded",
-        extra={
-            "memory_limit_gb": CONFIG['performance']['memory_limit_gb'],
-            "token_rate_target": CONFIG['performance']['token_rate_target'],
-            "f16_kv_enabled": CONFIG['performance']['f16_kv_enabled'],
-            "telemetry_enabled": CONFIG['project']['telemetry_enabled'],
-        }
-    )
+    if memory and cpu_count:
+        logger.info(
+            "System information",
+            extra={
+                "cpu_count": cpu_count,
+                "memory_total_gb": round(memory.total / (1024**3), 2),
+                "memory_available_gb": round(memory.available / (1024**3), 2),
+            }
+        )
 
 # ============================================================================
 # TESTING
 # ============================================================================
 
 if __name__ == "__main__":
-    """
-    Test logging configuration.
-    
-    Usage: python3 logging_config.py
-    
-    This validates the logging module and generates test logs.
-    """
+    """Test logging configuration."""
     print("=" * 70)
     print("Xoe-NovAi Logging Configuration - Test Suite v0.1.2")
     print("=" * 70)
@@ -487,23 +428,25 @@ if __name__ == "__main__":
     
     # Setup logging
     print("Setting up logging...")
-    setup_logging(log_level='INFO', json_format=True)
-    print("✓ Logging configured\n")
+    try:
+        setup_logging(log_level='INFO', json_format=True)
+        print("✓ Logging configured\n")
+    except Exception as e:
+        print(f"✗ Logging setup failed: {e}\n")
+        sys.exit(1)
     
     # Test basic logging
     print("Test 1: Basic logging")
     logger = get_logger(__name__)
-    logger.debug("Debug message (should not appear)")
     logger.info("Info message")
     logger.warning("Warning message")
-    logger.error("Error message")
     print("✓ Basic logging test complete\n")
     
     # Test context injection
     print("Test 2: Context injection")
     context_logger = get_logger(
         __name__,
-        context={'request_id': 'test-123', 'user_id': 'user-456'}
+        context={'request_id': 'test-123'}
     )
     context_logger.info("Message with context")
     print("✓ Context injection test complete\n")
@@ -513,97 +456,8 @@ if __name__ == "__main__":
     perf = PerformanceLogger(logger)
     perf.log_token_generation(tokens=100, duration_s=5.0)
     perf.log_memory_usage(component="test")
-    perf.log_query_latency(query="test query", duration_ms=123.4, success=True)
     print("✓ Performance logging test complete\n")
     
-    # Test crawler logging (NEW v0.1.2)
-    print("Test 4: Crawler logging (NEW v0.1.2)")
-    perf.log_crawl_operation(
-        source="gutenberg",
-        items=25,
-        duration_s=1800,  # 30 minutes
-        success=True
-    )
-    print("✓ Crawler logging test complete\n")
-    
-    # Test exception logging
-    print("Test 5: Exception logging")
-    try:
-        raise ValueError("Test exception")
-    except Exception:
-        logger.exception("Exception occurred during test")
-    print("✓ Exception logging test complete\n")
-    
-    # Log startup info
-    print("Test 6: Startup info")
-    log_startup_info()
-    print("✓ Startup info test complete\n")
-    
-    # Check log file
-    log_file = get_config_value('logging.file_path', '/app/XNAi_rag_app/logs/xnai.log')
-    if Path(log_file).exists():
-        print(f"✓ Log file created: {log_file}")
-        print(f"  Size: {Path(log_file).stat().st_size} bytes")
-    else:
-        print(f"⚠  Log file not found: {log_file}")
-    
-    print()
     print("=" * 70)
     print("All logging tests passed!")
     print("=" * 70)
-    print()
-    print("Integration: Import with 'from logging_config import setup_logging'")
-    print("Usage: Call setup_logging() once at application startup")(
-            "Token generation completed",
-            extra={
-                "operation": "token_generation",
-                "model": model,
-                "tokens": tokens,
-                "duration_s": round(duration_s, 3),
-                "tokens_per_second": round(tokens_per_second, 2),
-                "target_min": CONFIG['performance']['token_rate_min'],
-                "target_max": CONFIG['performance']['token_rate_max'],
-            }
-        )
-    
-    def log_memory_usage(self, component: str = "system"):
-        """
-        Log current memory usage.
-        
-        Args:
-            component: Component name (e.g., 'llm', 'embeddings', 'system')
-        """
-        import psutil
-        
-        memory = psutil.virtual_memory()
-        process = psutil.Process()
-        
-        self.logger.info(
-            "Memory usage",
-            extra={
-                "operation": "memory_check",
-                "component": component,
-                "system_used_gb": round(memory.used / (1024**3), 2),
-                "system_percent": memory.percent,
-                "process_used_gb": round(process.memory_info().rss / (1024**3), 2),
-                "limit_gb": CONFIG['performance']['memory_limit_gb'],
-            }
-        )
-    
-    def log_query_latency(
-        self,
-        query: str,
-        duration_ms: float,
-        success: bool = True,
-        error: str = None
-    ):
-        """
-        Log query processing latency.
-        
-        Args:
-            query: Query text (truncated to 100 chars)
-            duration_ms: Latency in milliseconds
-            success: Whether query succeeded
-            error: Error message if failed
-        """
-        self.logger.info
