@@ -3,23 +3,48 @@
     "Dockerfile.api",
     "Dockerfile.chainlit",
     "Dockerfile.crawl",
-    "Dockerfile.redis",
     "docker-compose.yml",
     "requirements-api.txt",
     "requirements-chainlit.txt",
     "requirements-crawl.txt",
     "config.toml",
-    ".env"
+    ".env",
+    ".env.example",
+    ".dockerignore",
+    ".gitignore",
+    "Makefile",
+    "README.md"
   ],
   "allowed_dirs": [
-    "app/",
-    "configs/",
-    "scripts/"
+    "app/XNAi_rag_app/",
+    "scripts/",
+    "tests/"
   ],
+  "excluded_dirs": [
+    "__pycache__",
+    ".git",
+    ".pytest_cache",
+    ".venv",
+    "venv",
+    "node_modules",
+    "stack-cat-output",
+    "models",
+    "embeddings",
+    "updates",
+    "library",
+    "knowledge",
+    "backups",
+    "data"
+],
   "excluded_extensions": [
     ".log",
     ".tmp",
     ".pyc",
-    ".pycache"
+    ".pycache",
+    ".DS_Store",
+    ".swp",
+    ".old",
+    ".md",
+    ".guff"
   ]
 }

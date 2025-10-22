@@ -1,40 +1,65 @@
 {
   "default": {
-    "description": "Full core stack",
+    "description": "Full core stack - Xoe-NovAi v0.1.3",
     "files": [
-      "Dockerfile*",
+      "Dockerfile.api",
+      "Dockerfile.chainlit", 
+      "Dockerfile.crawl",
       "docker-compose.yml",
-      "requirements.txt",
-      "main.py",
-      "app/**/*.py",
-      "app/**/*.sh",
-      "app/**/*.yml",
-      "configs/**/*.yml",
-      "scripts/**/*.sh"
+      "requirements-api.txt",
+      "requirements-chainlit.txt",
+      "requirements-crawl.txt",
+      "config.toml",
+      ".env",
+      ".env.example",
+      ".dockerignore",
+      ".gitignore",
+      "Makefile",
+      "README.md",
+      "app/XNAi_rag_app/*.py",
+      "scripts/*.py",
+      "scripts/*.sh",
+      "tests/*.py"
     ]
   },
   "api": {
     "description": "API backend only",
     "files": [
       "Dockerfile.api",
-      "app/api/**/*.py",
-      "main.py"
+      "requirements-api.txt",
+      "app/XNAi_rag_app/main.py",
+      "app/XNAi_rag_app/dependencies.py",
+      "app/XNAi_rag_app/config_loader.py",
+      "app/XNAi_rag_app/logging_config.py",
+      "app/XNAi_rag_app/healthcheck.py",
+      "app/XNAi_rag_app/metrics.py"
     ]
   },
   "rag": {
     "description": "RAG subsystem",
     "files": [
-      "app/XNAi_rag_app/**/*.py",
-      "app/XNAi_rag_app/**/*.yaml",
-      "configs/rag/*.yml"
+      "app/XNAi_rag_app/main.py",
+      "app/XNAi_rag_app/dependencies.py",
+      "app/XNAi_rag_app/config_loader.py",
+      "app/XNAi_rag_app/crawl.py",
+      "app/XNAi_rag_app/verify_imports.py",
+      "config.toml"
     ]
   },
   "frontend": {
-    "description": "Frontend build chain",
+    "description": "UI frontend",
     "files": [
-      "Dockerfile.frontend",
-      "app/frontend/**/*",
-      "package*.json"
+      "Dockerfile.chainlit",
+      "requirements-chainlit.txt", 
+      "app/XNAi_rag_app/chainlit_app.py"
+    ]
+  },
+  "crawler": {
+    "description": "CrawlModule subsystem",
+    "files": [
+      "Dockerfile.crawl",
+      "requirements-crawl.txt",
+      "app/XNAi_rag_app/crawl.py"
     ]
   }
 }
