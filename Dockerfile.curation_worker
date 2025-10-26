@@ -1,0 +1,32 @@
+# Dockerfile.worker
+# Builds a lightweight container for the Xoe-NovAi Curation Worker
+
+FROM python:3.11-slim AS base
+
+ENV APP_HOME=/app
+WORKDIR ${APP_HOME}
+
+# --- System setup ---
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# --- Copy application code ---
+COPY app/XNAi_rag_app /app/XNAi_rag_app
+COPY requirements-curation_workerworker.txt /app/requirements-curation_worker.txt
+
+# --- Python setup ---
+RUN python -m pip install --upgrade pip setuptools wheel
+RUN pip install -r /app/requirements-worker.txt
+
+# --- Create non-root user and directories ---
+RUN groupadd -r appgroup && useradd -r -g appgroup -d /app appuser && \
+    mkdir -p /app/logs/curations /app/data/curations && \
+    chown -R appuser:appgroup /app && chmod 770 /app/logs/curations /app/data/curations
+
+USER appuser
+WORKDIR /app
+
+ENV PATH="/home/appuser/.local/bin:${PATH}"
+
+CMD ["python3", "/app/XNAi_rag_app/curation_worker.py"]

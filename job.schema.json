@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CurationJob",
+  "description": "Schema for jobs processed by the Xoe-NovAi curation worker.",
+  "type": "object",
+  "properties": {
+    "source": {"type": "string", "description": "Source type (e.g. gutenberg, arxiv)."},
+    "category": {"type": "string", "description": "Content category or library folder."},
+    "query": {"type": "string", "description": "Query or identifier for the data."},
+    "queued_at": {"type": "string", "format": "date-time"},
+    "status": {"type": "string", "enum": ["queued", "processing", "completed", "failed"]},
+    "attempts": {"type": "integer", "minimum": 0}
+  },
+  "required": ["source", "category", "query", "queued_at", "status"]
+}

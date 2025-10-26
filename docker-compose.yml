@@ -233,6 +233,27 @@ services:
     tmpfs:
       - /tmp:mode=1777,size=512m
 
+  curation_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.curation_worker
+    image: xnai_curation_worker:latest
+    restart: on-failure
+    depends_on:
+      - redis
+    environment:
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@redis:6379/0"
+      QUEUE_KEY: "curation_queue"
+      JOB_PREFIX: "curation:"
+      LOG_DIR: "/app/logs/curations"
+      DATA_DIR: "/app/data/curations"
+      WORKER_NAME: "curation-worker-1"
+      MAX_ATTEMPTS: "3"
+    volumes:
+      - ./data/curations:/app/data/curations
+      - ./logs/curations:/app/logs/curations
+
+
 # ============================================================================
 # NETWORKS
 # ============================================================================
