@@ -52,7 +52,7 @@ def test_ryzen_detection():
 # ============================================================================
 
 @pytest.mark.unit
-def test_check_llm_success(mock_llm, monkeypatch):
+def test_check_llm_success(mock_llm: MagicMock, monkeypatch: pytest.MonkeyPatch):
     """Test successful LLM health check."""
     with patch('dependencies.get_llm', return_value=mock_llm):
         from healthcheck import check_llm
@@ -64,7 +64,7 @@ def test_check_llm_success(mock_llm, monkeypatch):
 
 
 @pytest.mark.unit
-def test_check_llm_failure(monkeypatch):
+def test_check_llm_failure(monkeypatch: pytest.MonkeyPatch):
     """Test LLM health check failure."""
     with patch('dependencies.get_llm', return_value=None):
         from healthcheck import check_llm
@@ -76,7 +76,7 @@ def test_check_llm_failure(monkeypatch):
 
 
 @pytest.mark.unit
-def test_check_llm_exception(monkeypatch):
+def test_check_llm_exception(monkeypatch: pytest.MonkeyPatch):
     """Test LLM health check with exception."""
     def raise_exception():
         raise RuntimeError("LLM init failed")
@@ -95,7 +95,7 @@ def test_check_llm_exception(monkeypatch):
 # ============================================================================
 
 @pytest.mark.unit
-def test_check_embeddings_success(mock_embeddings, monkeypatch):
+def test_check_embeddings_success(mock_embeddings: MagicMock, monkeypatch: pytest.MonkeyPatch):
     """Test successful embeddings health check."""
     with patch('dependencies.get_embeddings', return_value=mock_embeddings):
         from healthcheck import check_embeddings
@@ -107,7 +107,7 @@ def test_check_embeddings_success(mock_embeddings, monkeypatch):
 
 
 @pytest.mark.unit
-def test_check_embeddings_failure(monkeypatch):
+def test_check_embeddings_failure(monkeypatch: pytest.MonkeyPatch):
     """Test embeddings health check failure."""
     with patch('dependencies.get_embeddings', return_value=None):
         from healthcheck import check_embeddings
@@ -124,7 +124,7 @@ def test_check_embeddings_failure(monkeypatch):
 
 @pytest.mark.unit
 @pytest.mark.ryzen
-def test_check_memory_under_limit(mock_psutil, monkeypatch):
+def test_check_memory_under_limit(mock_psutil: MagicMock, monkeypatch: pytest.MonkeyPatch):
     """Test memory check under 6GB Ryzen limit."""
     # Mock 4GB usage (under limit)
     process_mock = Mock()
@@ -143,7 +143,7 @@ def test_check_memory_under_limit(mock_psutil, monkeypatch):
 
 @pytest.mark.unit
 @pytest.mark.ryzen
-def test_check_memory_over_limit(mock_psutil, monkeypatch):
+def test_check_memory_over_limit(mock_psutil: MagicMock, monkeypatch: pytest.MonkeyPatch):
     """Test memory check over 6GB Ryzen limit."""
     # Mock 7GB usage (over limit)
     process_mock = Mock()
@@ -163,7 +163,7 @@ def test_check_memory_over_limit(mock_psutil, monkeypatch):
 
 @pytest.mark.unit
 @pytest.mark.ryzen
-def test_check_memory_warning_threshold(mock_psutil, monkeypatch):
+def test_check_memory_warning_threshold(mock_psutil: MagicMock, monkeypatch: pytest.MonkeyPatch):
     """Test memory check at warning threshold (5.5GB)."""
     # Mock 5.8GB usage (warning threshold)
     process_mock = Mock()
@@ -185,7 +185,7 @@ def test_check_memory_warning_threshold(mock_psutil, monkeypatch):
 # ============================================================================
 
 @pytest.mark.unit
-def test_check_redis_success(mock_redis, monkeypatch, ryzen_env):
+def test_check_redis_success(mock_redis: MagicMock, monkeypatch: pytest.MonkeyPatch, ryzen_env: dict[str, str]):
     """Test successful Redis health check."""
     with patch('redis.Redis', return_value=mock_redis):
         from healthcheck import check_redis
@@ -198,7 +198,7 @@ def test_check_redis_success(mock_redis, monkeypatch, ryzen_env):
 
 
 @pytest.mark.unit
-def test_check_redis_failure(monkeypatch, ryzen_env):
+def test_check_redis_failure(monkeypatch: pytest.MonkeyPatch, ryzen_env: dict[str, str]):
     """Test Redis health check failure."""
     mock_redis_fail = Mock()
     mock_redis_fail.ping.side_effect = Exception("Connection refused")
@@ -213,7 +213,7 @@ def test_check_redis_failure(monkeypatch, ryzen_env):
 
 
 @pytest.mark.unit
-def test_check_redis_timeout(monkeypatch, ryzen_env):
+def test_check_redis_timeout(monkeypatch: pytest.MonkeyPatch, ryzen_env: dict[str, str]):
     """Test Redis health check with timeout."""
     mock_redis_timeout = Mock()
     mock_redis_timeout.ping.side_effect = TimeoutError("Connection timeout")
@@ -232,7 +232,7 @@ def test_check_redis_timeout(monkeypatch, ryzen_env):
 # ============================================================================
 
 @pytest.mark.unit
-def test_check_vectorstore_success(mock_vectorstore, monkeypatch):
+def test_check_vectorstore_success(mock_vectorstore: MagicMock, monkeypatch: pytest.MonkeyPatch):
     """Test successful vectorstore health check."""
     with patch('dependencies.get_vectorstore', return_value=mock_vectorstore):
         from healthcheck import check_vectorstore
@@ -244,7 +244,7 @@ def test_check_vectorstore_success(mock_vectorstore, monkeypatch):
 
 
 @pytest.mark.unit
-def test_check_vectorstore_failure(monkeypatch):
+def test_check_vectorstore_failure(monkeypatch: pytest.MonkeyPatch):
     """Test vectorstore health check failure."""
     with patch('dependencies.get_vectorstore', return_value=None):
         from healthcheck import check_vectorstore
@@ -256,7 +256,7 @@ def test_check_vectorstore_failure(monkeypatch):
 
 
 @pytest.mark.unit
-def test_check_vectorstore_search(mock_vectorstore, monkeypatch):
+def test_check_vectorstore_search(mock_vectorstore: MagicMock, monkeypatch: pytest.MonkeyPatch):
     """Test vectorstore search capability."""
     with patch('dependencies.get_vectorstore', return_value=mock_vectorstore):
         from healthcheck import check_vectorstore
@@ -274,7 +274,7 @@ def test_check_vectorstore_search(mock_vectorstore, monkeypatch):
 # ============================================================================
 
 @pytest.mark.unit
-def test_check_crawler_success(mock_crawler, monkeypatch):
+def test_check_crawler_success(mock_crawler: MagicMock, monkeypatch: pytest.MonkeyPatch):
     """Test successful crawler health check."""
     with patch('dependencies.get_curator', return_value=mock_crawler):
         from healthcheck import check_crawler
@@ -286,7 +286,7 @@ def test_check_crawler_success(mock_crawler, monkeypatch):
 
 
 @pytest.mark.unit
-def test_check_crawler_failure(monkeypatch):
+def test_check_crawler_failure(monkeypatch: pytest.MonkeyPatch):
     """Test crawler health check failure."""
     with patch('dependencies.get_curator', return_value=None):
         from healthcheck import check_crawler
@@ -302,7 +302,7 @@ def test_check_crawler_failure(monkeypatch):
 # ============================================================================
 
 @pytest.mark.unit
-def test_check_chainlit_success(monkeypatch, ryzen_env):
+def test_check_chainlit_success(monkeypatch: pytest.MonkeyPatch, ryzen_env: dict[str, str]):
     """Test successful Chainlit health check."""
     mock_response = Mock()
     mock_response.status_code = 200
@@ -318,7 +318,7 @@ def test_check_chainlit_success(monkeypatch, ryzen_env):
 
 
 @pytest.mark.unit
-def test_check_chainlit_failure(monkeypatch, ryzen_env):
+def test_check_chainlit_failure(monkeypatch: pytest.MonkeyPatch, ryzen_env: dict[str, str]):
     """Test Chainlit health check failure."""
     mock_response = Mock()
     mock_response.status_code = 500
@@ -340,14 +340,14 @@ def test_check_chainlit_failure(monkeypatch, ryzen_env):
 @pytest.mark.integration
 @pytest.mark.slow
 def test_full_health_check(
-    mock_llm,
-    mock_embeddings,
-    mock_vectorstore,
-    mock_redis,
-    mock_crawler,
-    mock_psutil,
-    monkeypatch,
-    ryzen_env
+    mock_llm: MagicMock,
+    mock_embeddings: MagicMock,
+    mock_vectorstore: MagicMock,
+    mock_redis: MagicMock,
+    mock_crawler: MagicMock,
+    mock_psutil: MagicMock,
+    monkeypatch: pytest.MonkeyPatch,
+    ryzen_env: dict[str, str]
 ):
     """Test complete health check suite."""
     # Patch all dependencies
@@ -384,7 +384,7 @@ def test_full_health_check(
 
 @pytest.mark.integration
 @pytest.mark.ryzen
-def test_ryzen_specific_checks(mock_psutil, monkeypatch, ryzen_env):
+def test_ryzen_specific_checks(mock_psutil: MagicMock, monkeypatch: pytest.MonkeyPatch, ryzen_env: dict[str, str]):
     """Test Ryzen-specific optimizations are verified."""
     from conftest import assert_ryzen_config
     
@@ -398,7 +398,7 @@ def test_ryzen_specific_checks(mock_psutil, monkeypatch, ryzen_env):
 
 
 @pytest.mark.integration
-def test_telemetry_disabled_checks(ryzen_env):
+def test_telemetry_disabled_checks(ryzen_env: dict[str, str]):
     """Test all 8 telemetry disables are set."""
     from conftest import assert_telemetry_disabled
     
@@ -411,7 +411,7 @@ def test_telemetry_disabled_checks(ryzen_env):
 # ============================================================================
 
 @pytest.mark.unit
-def test_check_memory_exception(monkeypatch):
+def test_check_memory_exception(monkeypatch: pytest.MonkeyPatch):
     """Test memory check with exception."""
     def raise_exception():
         raise RuntimeError("psutil error")
@@ -426,7 +426,7 @@ def test_check_memory_exception(monkeypatch):
 
 
 @pytest.mark.unit
-def test_check_redis_connection_error(monkeypatch, ryzen_env):
+def test_check_redis_connection_error(monkeypatch: pytest.MonkeyPatch, ryzen_env: dict[str, str]):
     """Test Redis check with connection error."""
     def raise_connection_error(*args, **kwargs):
         raise ConnectionError("Cannot connect to Redis")
