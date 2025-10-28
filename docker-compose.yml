@@ -175,6 +175,8 @@ services:
       args:
         BUILDKIT_INLINE_CACHE: 1
     container_name: xnai_crawler
+    security_opt:
+      - no-new-privileges:true
     volumes:
       # IMPORTANT: Ensure directories exist with correct permissions:
       # sudo mkdir -p library knowledge data/cache

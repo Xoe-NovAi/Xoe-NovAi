@@ -48,9 +48,16 @@ CONFIG = load_config()
 # ============================================================================
 
 # Gauges (current state)
+memory_usage_bytes = Gauge(
+    'xnai_memory_usage_bytes',
+    'Current memory usage in bytes',
+    ['component']  # Labels: 'system', 'process', 'llm', 'embeddings'
+)
+
+# Keep legacy GB metric for backward compatibility
 memory_usage_gb = Gauge(
     'xnai_memory_usage_gb',
-    'Current memory usage in gigabytes',
+    'Current memory usage in gigabytes (DEPRECATED)',
     ['component']  # Labels: 'system', 'process', 'llm', 'embeddings'
 )
 
@@ -172,12 +179,18 @@ def update_memory_metrics():
     try:
         # System memory
         memory = psutil.virtual_memory()
-        system_used_gb = memory.used / (1024 ** 3)
+        system_used_bytes = memory.used
+        memory_usage_bytes.labels(component='system').set(system_used_bytes)
+        # Keep legacy GB metric for backward compatibility
+        system_used_gb = system_used_bytes / (1024 ** 3)
         memory_usage_gb.labels(component='system').set(system_used_gb)
         
         # Process memory
         process = psutil.Process()
-        process_used_gb = process.memory_info().rss / (1024 ** 3)
+        process_used_bytes = process.memory_info().rss  # Already in bytes
+        memory_usage_bytes.labels(component='process').set(process_used_bytes)
+        # Keep legacy GB metric for backward compatibility
+        process_used_gb = process_used_bytes / (1024 ** 3)
         memory_usage_gb.labels(component='process').set(process_used_gb)
         
         # Log warning if approaching limit
@@ -306,7 +319,7 @@ _metrics_updater = None
 # METRICS SERVER
 # ============================================================================
 
-def start_metrics_server(port: int = None):
+def start_metrics_server(port: int | None = None):
     """
     Start Prometheus metrics HTTP server.
     
@@ -324,9 +337,10 @@ def start_metrics_server(port: int = None):
     """
     global _metrics_updater
     
-    # Get port from config if not specified
-    if port is None:
-        port = get_config_value('metrics.port', 8002)
+    # Get port from config if not specified and validate
+    port_number = get_config_value('metrics.port', 8002) if port is None else port
+    if not isinstance(port_number, int):
+        raise ValueError(f"Port must be an integer, got {type(port_number)}")
     
     # Check if metrics enabled
     if not get_config_value('metrics.enabled', True):
@@ -335,8 +349,8 @@ def start_metrics_server(port: int = None):
     
     # Start HTTP server
     try:
-        start_http_server(port)
-        logger.info(f"Prometheus metrics server started on port {port}")
+        start_http_server(port_number)
+        logger.info(f"Prometheus metrics server started on port {port_number}")
     except OSError as e:
         if "Address already in use" in str(e):
             logger.warning(f"Metrics server already running on port {port}")
@@ -527,7 +541,7 @@ def check_performance_targets() -> Dict[str, Any]:
 # MULTIPROCESS MODE (for Gunicorn/Uvicorn workers)
 # ============================================================================
 
-def setup_multiprocess_metrics(multiproc_dir: str = None):
+def setup_multiprocess_metrics(multiproc_dir: str | None = None):
     """
     Setup metrics for multiprocess mode.
     
@@ -540,17 +554,26 @@ def setup_multiprocess_metrics(multiproc_dir: str = None):
         
     Example:
         >>> setup_multiprocess_metrics('/prometheus_data')
+        
+    Raises:
+        ValueError: If multiproc_dir is None after config lookup
     """
-    if multiproc_dir is None:
-        multiproc_dir = get_config_value('metrics.multiproc_dir', '/prometheus_data')
+    # Get directory from config if not specified and validate
+    dir_path = multiproc_dir if multiproc_dir is not None else get_config_value('metrics.multiproc_dir', '/prometheus_data')
+    
+    if dir_path is None:
+        raise ValueError("Multiprocess directory path cannot be None")
+        
+    if not isinstance(dir_path, str):
+        raise ValueError(f"Multiprocess directory path must be a string, got {type(dir_path)}")
     
     # Ensure directory exists
-    Path(multiproc_dir).mkdir(parents=True, exist_ok=True)
+    Path(dir_path).mkdir(parents=True, exist_ok=True)
     
     # Set environment variable
-    os.environ['prometheus_multiproc_dir'] = multiproc_dir
+    os.environ['prometheus_multiproc_dir'] = dir_path
     
-    logger.info(f"Multiprocess metrics enabled: {multiproc_dir}")
+    logger.info(f"Multiprocess metrics enabled: {dir_path}")
 
 # ============================================================================
 # TESTING

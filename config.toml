@@ -51,9 +51,15 @@ embedding_device = "cpu"
 token_rate_min = 15
 token_rate_target = 20
 token_rate_max = 25
-memory_limit_gb = 6.0
-memory_warning_threshold_gb = 5.5
-memory_critical_threshold_gb = 5.8
+# Memory limits in bytes (1 GB = 1073741824 bytes)
+memory_limit_bytes = 6442450944  # 6.0 GB
+memory_warning_threshold_bytes = 5905580032  # 5.5 GB
+memory_critical_threshold_bytes = 6228254720  # 5.8 GB
+
+# Legacy GB settings (DEPRECATED - use _bytes values above)
+memory_limit_gb = 6.0  # DEPRECATED
+memory_warning_threshold_gb = 5.5  # DEPRECATED
+memory_critical_threshold_gb = 5.8  # DEPRECATED
 latency_target_ms = 1000
 latency_warning_ms = 1500
 cpu_threads = 6

@@ -33,6 +33,21 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'app' / 'XNAi_rag_app'))
 
 
 # ============================================================================
+# SYSTEM DETECTION TESTS
+# ============================================================================
+
+@pytest.mark.unit
+def test_ryzen_detection():
+    """Test Ryzen CPU detection and optimization settings."""
+    from healthcheck import check_cpu_info
+    
+    cpu_info = check_cpu_info()
+    assert "AMD Ryzen" in cpu_info["model_name"]
+    assert cpu_info["architecture"] == "x86_64"
+    assert cpu_info["cores"] >= 6  # Ryzen 7 5700U has 8 cores
+    assert cpu_info["optimization"] == "ZEN2"  # Check for correct optimization flags
+
+# ============================================================================
 # LLM HEALTH CHECK TESTS
 # ============================================================================
 

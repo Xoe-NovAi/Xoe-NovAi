@@ -397,13 +397,37 @@ class SnapshotIngestor:
             logger.exception(f"[ingest] Failed to add/create vectorstore: {e}")
             raise
 
-        # Save vectorstore
+        # Save vectorstore atomically
         try:
             self.vectorstore_path.mkdir(parents=True, exist_ok=True)
-            vs.save_local(str(self.vectorstore_path))
-            logger.info(f"[ingest] Vectorstore saved to: {self.vectorstore_path}")
+            
+            # Create temporary path for atomic save
+            tmp_path = self.vectorstore_path.with_suffix('.tmp')
+            
+            # Save to temporary location
+            vs.save_local(str(tmp_path))
+            
+            # Ensure data is synced to disk
+            try:
+                for root, _, files in os.walk(tmp_path):
+                    for file in files:
+                        file_path = Path(root) / file
+                        with open(file_path, 'rb') as f:
+                            os.fsync(f.fileno())
+            except Exception as e:
+                logger.warning(f"[ingest] fsync failed for {tmp_path}, continuing with replace: {e}")
+            
+            # Atomic rename
+            os.replace(str(tmp_path), str(self.vectorstore_path))
+            logger.info(f"[ingest] Vectorstore saved atomically to: {self.vectorstore_path}")
         except Exception as e:
             logger.exception(f"[ingest] Failed to save vectorstore: {e}")
+            # Cleanup temporary path if it exists
+            if tmp_path.exists():
+                try:
+                    tmp_path.unlink()
+                except Exception as cleanup_e:
+                    logger.warning(f"[ingest] Failed to cleanup temporary path: {cleanup_e}")
 
         # Cache metadata into Redis (if available)
         try:

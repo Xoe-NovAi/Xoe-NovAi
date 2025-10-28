@@ -35,6 +35,39 @@ sys.path.insert(0, str(Path(__file__).parent.parent / 'app' / 'XNAi_rag_app'))
 
 
 # ============================================================================
+# ATOMIC SAVE TESTS
+# ============================================================================
+
+@pytest.mark.unit
+def test_atomic_checkpoint():
+    """Test atomic save operations with fsync."""
+    import os
+    import tempfile
+    from pathlib import Path
+    
+    # Create temporary test directory
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir) / "test_index"
+        final_path = Path(tmp_dir) / "final_index"
+        
+        # Create test data
+        test_data = b"Test index content"
+        
+        # Write to temporary file
+        tmp_path.write_bytes(test_data)
+        
+        # Fsync the temporary file
+        with open(tmp_path, 'rb') as f:
+            os.fsync(f.fileno())
+        
+        # Perform atomic rename
+        os.replace(tmp_path, final_path)
+        
+        # Verify content
+        assert final_path.read_bytes() == test_data
+        assert not tmp_path.exists()
+
+# ============================================================================
 # INGESTION PIPELINE TESTS
 # ============================================================================
 

@@ -244,8 +244,8 @@ async def shutdown_dependencies():
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=1, max=10),
-    retry=retry_if_exception_type((RuntimeError, OSError)),
-    reraise=True
+    retry=retry_if_exception_type((RuntimeError, OSError, ConnectionError, TimeoutError)),
+    reraise=True)
 )
 def get_llm(model_path: Optional[str] = None, **kwargs) -> LlamaCpp:
     """

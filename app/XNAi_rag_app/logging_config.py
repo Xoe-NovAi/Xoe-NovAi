@@ -228,21 +228,44 @@ def setup_file_handler(
     CRITICAL: This MUST handle the case where the directory doesn't exist
     (created at build time) but we still need to verify it's writable.
     """
-    # Ensure log directory exists (CRITICAL - this was failing before)
+    import errno
+    from pathlib import Path
+    
+    # ensure logs dir exists and is writable for container (non-root: UID 1001)
     log_path = Path(log_file)
+    logs_dir = log_path.parent
+    
     try:
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-    except PermissionError as e:
-        print(f"ERROR: Cannot create logs directory: {e}")
-        print(f"  Path: {log_path.parent}")
-        print(f"  Current user: {os.getuid()}")
-        print(f"  Directory ownership:")
-        import subprocess
+        # Create directory if it doesn't exist
+        logs_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Only attempt chown if platform supports it and UID/GID provided
+        uid, gid = 1001, 1001
         try:
-            subprocess.run(['ls', '-ld', str(log_path.parent)])
-        except:
+            os.chown(str(logs_dir), uid, gid)
+        except PermissionError:
+            # Running as non-root in dev environment; skip chown but log notice.
+            print("Warning: Unable to chown logs directory (non-root).")
+        except AttributeError:
+            # os.chown may not be available on some platforms
             pass
-        raise
+        
+        # Tighten perms: owner rwx, group rx (no global write)
+        logs_dir.chmod(0o750)
+        
+    except OSError as e:
+        if e.errno == errno.EACCES:
+            print(f"ERROR: Cannot create/modify logs directory due to permissions: {e}")
+            print(f"  Path: {logs_dir}")
+            print(f"  Current user: {os.getuid()}")
+            print("  Directory ownership:")
+            import subprocess
+            try:
+                subprocess.run(['ls', '-ld', str(logs_dir)])
+            except:
+                pass
+        # Don't crash startup; log error and continue
+        print(f"Warning: Could not configure logs dir permissions: {e}")
     
     # Create handler
     handler = RotatingFileHandler(
