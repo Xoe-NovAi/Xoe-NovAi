@@ -1,0 +1,242 @@
+Below I give: (A) high-level corrections / clarifications, (B) small code diffs you can `git apply` immediately (production-safe), and (C) validation commands + notes. I kept changes minimal and conservative — none change behavior in a breaking way; each is defensive and testable.
+
+---
+
+# A — Key corrections & clarifications (short)
+
+1. **Crawl4AI compatibility**
+
+   * Grok’s claim that `crawl4ai 0.7.3` is stable for Python 3.12 is supported by the project release notes and docs (v0.7.3 exists). Still: some downstream dependency issues (e.g., `aiofiles` pins in older reports) have shown up historically — so pin and test in CI. ([Crawl4AI Documentation][1])
+
+2. **Metric rename: prefer bytes but keep compatibility**
+
+   * Prometheus guidance recommends using base units (bytes). Changing `*_gb` → `*_bytes` is correct. However, add a backward-compatible exporter/alias metric (or preserve both for one release) to avoid breaking dashboards/alerts. ([Prometheus][2])
+
+3. **File perms & chown**
+
+   * `os.chmod('logs', 0o777)` → `chown + chmod 0o750` is correct. But `os.chown` must run only if the dir exists and the UID/GID are available. Wrap with existence checks and exception handling to avoid start-up crashes (esp. on developer machines). Also use `mkdir(..., exist_ok=True)`.
+
+4. **Atomic save improvements**
+
+   * `os.replace(tmp, final)` is good — but for higher durability `fsync` the temporary file before `replace` (or use `tempfile.NamedTemporaryFile` + `os.fsync(fd)`), so the rename doesn't move a file that hasn't hit disk.
+
+5. **Retry decorator specificity**
+
+   * `retry=retry_if_exception_type((ConnectionError, TimeoutError))` is fine — ensure you import `retry_if_exception_type` and that tests assert retries for transient exceptions only.
+
+6. **.env secret handling**
+
+   * Do not place real strong passwords in committed `.env` — keep a placeholder and add a `secrets.md` pointing to recommended secret store patterns (Docker secrets / GitHub Actions secrets / HashiCorp Vault).
+
+7. **Docker `no-new-privileges` caveat**
+
+   * Good to add `security_opt: - no-new-privileges:true`. Note: some images/programs may rely on privilege escalation (rare). Add it in CI and smoke-test containers because the flag can prevent `sudo` inside container or some `setuid` behaviors. ([GitHub][3])
+
+---
+
+# B — Minimal, ready-to-apply patches
+
+Below are concise patches (git diff hunks). Each patch is small and self-contained — apply, run tests, and roll back if needed.
+
+1. **logging_config.py — safe mkdir, chown, chmod, and robust errors**
+
+```diff
+*** Begin Patch
+*** Update File: app/XNAi_rag_app/logging_config.py
+@@
+-# ensure logs dir exists and is writable for container
+-os.makedirs('logs', exist_ok=True)
+-os.chmod('logs', 0o777)
++import errno
++from pathlib import Path
++
++# ensure logs dir exists and is writable for container (non-root: UID 1001)
++logs_dir = Path('logs')
++logs_dir.mkdir(parents=True, exist_ok=True)
++try:
++    # Only attempt chown if platform supports it and UID/GID provided
++    uid, gid = 1001, 1001
++    try:
++        os.chown(str(logs_dir), uid, gid)
++    except PermissionError:
++        # Running as non-root in dev environment; skip chown but log notice.
++        logger.warning("Unable to chown logs directory (non-root).")
++    except AttributeError:
++        # os.chown may not be available on some platforms
++        pass
++    # Tighten perms: owner rwx, group rx (no global write)
++    logs_dir.chmod(0o750)
++except OSError as e:
++    # fallback: don't crash startup; log error and continue
++    logger.error("Could not configure logs dir permissions: %s", e)
+*** End Patch
+```
+
+Notes: ensures directory exists, doesn't crash startup in developer environments, and avoids `777`. Keeps UID 1001 for non-root runtime; change UID if you use different user.
+
+---
+
+2. **dependencies.py — explicit retry import + targeted retry predicate**
+
+```diff
+*** Begin Patch
+*** Update File: app/XNAi_rag_app/dependencies.py
+@@
+-from tenacity import retry, stop_after_attempt, wait_exponential
++from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+@@
+-@retry(stop=stop_after_attempt(3), wait=wait_exponential(min=1, max=10))
++@retry(
++    stop=stop_after_attempt(3),
++    wait=wait_exponential(min=1, max=10),
++    retry=retry_if_exception_type((ConnectionError, TimeoutError))
++)
+ def load_llm(...):
+     ...
+*** End Patch
+```
+
+Notes: ensures tenacity will retry only on transient network/timeouts. Add tests to verify behavior.
+
+---
+
+3. **metrics.py — rename metric and export compatibility alias**
+
+```diff
+*** Begin Patch
+*** Update File: app/XNAi_rag_app/metrics.py
+@@
+-# Memory metric in GB (legacy)
+-memory_used_gb = Gauge('xnai_memory_used_gb', 'Memory used in GB')
++# Memory metric in bytes (preferred). Keep legacy metric as alias for one release.
++memory_used_bytes = Gauge('xnai_memory_used_bytes', 'Memory used in bytes')
++# Export legacy alias for backward compatibility (value in bytes converted to GB)
++memory_used_gb = Gauge('xnai_memory_used_gb', 'Memory used in GB (DEPRECATED)')
+@@
+-def sample_memory():
+-    gb = psutil.virtual_memory().used / (1024**3)
+-    memory_used_gb.set(gb)
++def sample_memory():
++    used_bytes = psutil.virtual_memory().used
++    memory_used_bytes.set(int(used_bytes))
++    # set deprecated GB metric for compatibility (float)
++    memory_used_gb.set(used_bytes / (1024**3))
+*** End Patch
+```
+
+Notes: dashboards should be updated to use `*_bytes` over time; keep `*_gb` until ops has migrated.
+
+---
+
+4. **ingest_library.py — atomic save with fsync**
+
+```diff
+*** Begin Patch
+*** Update File: scripts/ingest_library.py
+@@
+-    tmp_path = 'faiss_index.tmp'
+-    vectorstore.save_local(tmp_path)
+-    os.replace(tmp_path, 'faiss_index')  # Guide Ref: Group 5 Section 11
++    import tempfile
++    tmp_dir = os.path.dirname('faiss_index')
++    with tempfile.NamedTemporaryFile(delete=False, dir=tmp_dir, prefix='faiss_index.', suffix='.tmp') as tf:
++        tmp_path = tf.name
++    # save to temp path (vectorstore API must support path target)
++    vectorstore.save_local(tmp_path)
++    # ensure data is flushed to disk for durability
++    try:
++        with open(tmp_path, 'rb') as fh:
++            os.fsync(fh.fileno())
++    except Exception:
++        logger.warning("fsync failed for %s; continuing with replace", tmp_path)
++    os.replace(tmp_path, 'faiss_index')
+*** End Patch
+```
+
+Notes: fsync helps ensure the file data is committed before replace. Adjust vectorstore.save_local API if it doesn't accept an explicit path — in that case save to a known file inside tmp dir and proceed similarly.
+
+---
+
+5. **.env guidance — don't commit strong passwords**
+
+Replace the proposed committed strong password line with a placeholder and add instruction to `secrets.md`. Minimal patch to `.env`:
+
+```diff
+*** Begin Patch
+*** Update File: .env
+@@
+-REDIS_PASSWORD=strong_random_password_32chars
++# Use a secrets manager; do NOT commit real secrets. Example placeholder:
++REDIS_PASSWORD=__REPLACE_WITH_SECRET__  # set via Docker secret / env in CI/CD
++PHASE2_QDRANT_ENABLED=false  # Guide Ref: Appendix F
+*** End Patch
+```
+
+Add `secrets.md` separately describing recommended secret storage (Docker secrets, GitHub secrets).
+
+---
+
+6. **docker-compose.yml — add security_opt but keep in mind tests**
+
+```diff
+*** Begin Patch
+*** Update File: docker-compose.yml
+@@
+ services:
+   rag:
++    security_opt:
++      - no-new-privileges:true
+*** End Patch
+```
+
+Note: add smoke test job in CI to ensure no regressions (`make smoke` that runs a container health check). See validation section below.
+
+---
+
+# C — Validation commands & CI additions
+
+After applying patches, run these locally / in CI:
+
+1. **Lint / unit tests**
+
+```bash
+# run Python lints & tests
+pre-commit run --all-files || true
+pytest tests/ -q
+```
+
+2. **Atomic save test**
+
+```bash
+pytest tests/test_atomic_save.py -q
+# (add test that runs ingest with small corpus and simulates kill before/after save)
+```
+
+3. **Metrics check**
+
+```bash
+# start metrics exporter (or run relevant sample)
+python -c "from app.XNAi_rag_app import metrics; metrics.sample_memory(); print('ok')"
+curl localhost:8002/metrics | grep xnai_memory_used_bytes
+```
+
+4. **Docker smoke test** (after adding `no-new-privileges`)
+
+```bash
+docker compose up -d --build
+sleep 15
+docker compose logs --tail=50 rag | sed -n '1,200p'
+# ensure service doesn't fail with 'no-new-privileges' flag
+docker compose down -v
+```
+
+5. **Crawl4AI pin & test**
+   Add a CI step to `pip install crawl4ai==0.7.3` and run `crawl4ai-doctor`/`crawl4ai-setup` in CI matrix (python 3.12). If any dependency like `aiofiles` fails in CI, add a pinned constraint or patch.
+
+---
+
+# D — Additional suggested small improvements (non-blocking)
+
+* **Dashboard migration plan**: Include a short ops checklist to switch from `*_gb` to `*_bytes` (e.g., create Grafana variables, switch panels, then remove deprecated metrics after 2 releases).
+* **Compatibility shim**: Add a small compatibility exporter that publishes both new and legacy metric names for one release cycle.
+* **Preflight script**: Add `scripts/preflight_checks.sh` that validates chown availability, required envs (e.g., `REDIS_PASSWORD` present), and that `PHASE2_QDRANT_ENABLED` is boolean. Run in CI early.

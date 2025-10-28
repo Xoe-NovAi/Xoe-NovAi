@@ -1,19 +1,56 @@
-# Xoe-NovAi Phase 1 v0.1.2 Makefile
+# Xoe-NovAi Phase 1 v0.1.3 Makefile
 # Purpose: Production utilities for setup, docker, testing, debugging
-
-## Overview# Guide Reference: Section 5.3 (Health Checks), 2.4 (Validation)
+# Guide Reference: Section 5.3 (Health Checks), 2.4 (Validation)
 
 # Last Updated: 2025-10-18
 
 This document outlines best practices for managing secrets in the Xoe-NovAi stack. Follow these guidelines to ensure secure handling of sensitive information.
 
-.PHONY: help download-models validate health benchmark curate ingest test build up down logs debug-rag debug-ui debug-crawler debug-redis restart cleanup
+.PHONY: help download-models validate health benchmark curate ingest test build up down logs \
+        debug-rag debug-ui debug-crawler debug-redis restart cleanup wheelhouse deps
 
-## Best Practices
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+
+COMPOSE := sudo docker compose
+PYTHON := python3
+PYTEST := pytest
+DOCKER_EXEC := sudo docker exec
+WHEELHOUSE_DIR := wheelhouse
+REQ_GLOB := "requirements-*.txt"
+
+# Color output
+CYAN := \033[0;36m
+GREEN := \033[0;32m
+YELLOW := \033[1;33m
+RED := \033[0;31m
+NC := \033[0m
+
+# ============================================================================
+# HELP
+# ============================================================================
 
 help: ## Show this help message
+	@echo "Xoe-NovAi Makefile Targets:"
+	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  $(CYAN)%-20s$(NC) %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-### 1. Environment Variables	@echo "Xoe-NovAi Makefile Targets:"
+# ============================================================================
+# SETUP & BUILD
+# ============================================================================
+
+wheelhouse: ## Download all Python dependencies to wheelhouse/ for offline install
+	@echo "$(CYAN)Downloading Python packages to wheelhouse/...$(NC)"
+	./scripts/download_wheelhouse.sh $(WHEELHOUSE_DIR) $(REQ_GLOB)
+	@echo "$(GREEN)✓ Wheelhouse created in $(WHEELHOUSE_DIR)/$(NC)"
+
+deps: wheelhouse ## Install dependencies from wheelhouse (offline)
+	@echo "$(CYAN)Installing dependencies from wheelhouse...$(NC)"
+	$(PYTHON) -m pip install --no-index --find-links=$(WHEELHOUSE_DIR) -r requirements-api.txt
+	$(PYTHON) -m pip install --no-index --find-links=$(WHEELHOUSE_DIR) -r requirements-chainlit.txt
+	$(PYTHON) -m pip install --no-index --find-links=$(WHEELHOUSE_DIR) -r requirements-crawl.txt
+	$(PYTHON) -m pip install --no-index --find-links=$(WHEELHOUSE_DIR) -r requirements-curation_worker.txt
+	@echo "$(GREEN)✓ Dependencies installed from wheelhouse$(NC)"
 
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $1, $2}' $(MAKEFILE_LIST)
 
