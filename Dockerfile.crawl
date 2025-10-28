@@ -20,6 +20,30 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     DEBIAN_FRONTEND=noninteractive
 
+# system deps often required for crawling & media processing
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl build-essential git ffmpeg libxml2-dev libxslt1-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# wheelhouse support: copy directory or archive
+COPY wheelhouse /wheels
+COPY wheelhouse.tgz /tmp/wheelhouse.tgz
+
+RUN if [ -f /tmp/wheelhouse.tgz ]; then mkdir -p /wheels && tar -xzf /tmp/wheelhouse.tgz -C /wheels; fi \
+    && if [ -d /wheels ] && [ "$(ls -A /wheels || true)" ]; then echo "wheelhouse detected with $(ls /wheels | wc -l) files"; else echo "no wheelhouse detected"; fi
+
+ARG OFFLINE=true
+ENV OFFLINE=${OFFLINE}
+
+# Install dependencies: prefer wheelhouse when OFFLINE=true
+RUN if [ "${OFFLINE}" = "true" ] && [ -d /wheels ] && [ "$(ls -A /wheels || true)" ]; then \
+      pip install --no-index --find-links=/wheels pip setuptools wheel && \
+      pip install --no-index --find-links=/wheels -r requirements-crawl.txt ; \
+    else \
+      pip install --upgrade pip setuptools wheel && \
+      pip install -r requirements-crawl.txt ; \
+    fi
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     git \

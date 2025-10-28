@@ -1,10 +1,32 @@
 # Dockerfile.worker
 # Builds a lightweight container for the Xoe-NovAi Curation Worker
 
-FROM python:3.11-slim AS base
+FROM python:3.12-slim AS base
 
 ENV APP_HOME=/app
 WORKDIR ${APP_HOME}
+
+# minimal system deps for the worker
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ca-certificates curl build-essential git \
+    && rm -rf /var/lib/apt/lists/*
+
+# wheelhouse support: copy directory or archive
+COPY wheelhouse /wheels
+COPY wheelhouse.tgz /tmp/wheelhouse.tgz
+
+RUN if [ -f /tmp/wheelhouse.tgz ]; then mkdir -p /wheels && tar -xzf /tmp/wheelhouse.tgz -C /wheels; fi \
+    && if [ -d /wheels ] && [ "$(ls -A /wheels || true)" ]; then echo "wheelhouse detected with $(ls /wheels | wc -l) files"; else echo "no wheelhouse detected"; fi
+
+ARG OFFLINE=true
+ENV OFFLINE=${OFFLINE}
+
+RUN if [ "${OFFLINE}" = "true" ] && [ -d /wheels ] && [ "$(ls -A /wheels || true)" ]; then \
+      pip install --no-index --find-links=/wheels pip setuptools wheel && \
+      pip install --no-index --find-links=/wheels -r requirements-curation_worker.txt ; \
+    else \
+      pip install --upgrade pip setuptools wheel && \
+      pip install -r requirements-curation_worker.txt ; \
 
 # --- System setup ---
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -13,7 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # --- Copy application code ---
 COPY app/XNAi_rag_app /app/XNAi_rag_app
-COPY requirements-curation_workerworker.txt /app/requirements-curation_worker.txt
+COPY requirements-curation_worker.txt /app/requirements-curation_worker.txt
 
 # --- Python setup ---
 RUN python -m pip install --upgrade pip setuptools wheel
