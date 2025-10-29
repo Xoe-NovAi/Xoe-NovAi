@@ -1,4 +1,4 @@
-# Dockerfile.worker
+# Dockerfile.curation_worker
 # Builds a lightweight container for the Xoe-NovAi Curation Worker
 
 FROM python:3.12-slim AS base
@@ -11,35 +11,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl build-essential git \
     && rm -rf /var/lib/apt/lists/*
 
-# wheelhouse support: copy directory or archive
+# --- Copy requirements and wheelhouse ---
+COPY requirements-curation_worker.txt /app/requirements-curation_worker.txt
 COPY wheelhouse /wheels
 COPY wheelhouse.tgz /tmp/wheelhouse.tgz
 
+# --- Extract wheelhouse if needed ---
 RUN if [ -f /tmp/wheelhouse.tgz ]; then mkdir -p /wheels && tar -xzf /tmp/wheelhouse.tgz -C /wheels; fi \
     && if [ -d /wheels ] && [ "$(ls -A /wheels || true)" ]; then echo "wheelhouse detected with $(ls /wheels | wc -l) files"; else echo "no wheelhouse detected"; fi
 
+# --- Install dependencies ---
 ARG OFFLINE=true
 ENV OFFLINE=${OFFLINE}
 
 RUN if [ "${OFFLINE}" = "true" ] && [ -d /wheels ] && [ "$(ls -A /wheels || true)" ]; then \
+      echo "Installing offline from wheelhouse..."; \
       pip install --no-index --find-links=/wheels pip setuptools wheel && \
-      pip install --no-index --find-links=/wheels -r requirements-curation_worker.txt ; \
+      pip install --no-index --find-links=/wheels -r /app/requirements-curation_worker.txt ; \
     else \
+      echo "Installing online..."; \
       pip install --upgrade pip setuptools wheel && \
-      pip install -r requirements-curation_worker.txt ; \
-
-# --- System setup ---
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+      pip install -r /app/requirements-curation_worker.txt ; \
+    fi
 
 # --- Copy application code ---
 COPY app/XNAi_rag_app /app/XNAi_rag_app
-COPY requirements-curation_worker.txt /app/requirements-curation_worker.txt
-
-# --- Python setup ---
-RUN python -m pip install --upgrade pip setuptools wheel
-RUN pip install -r /app/requirements-worker.txt
 
 # --- Create non-root user and directories ---
 RUN groupadd -r appgroup && useradd -r -g appgroup -d /app appuser && \

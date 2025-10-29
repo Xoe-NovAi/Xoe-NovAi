@@ -30,6 +30,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates build-essential cmake git libopenblas-dev pkg-config curl \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy requirements file first
+COPY requirements-api.txt /app/requirements-api.txt
+
 # wheelhouse support (copy directory or compressed archive into build context)
 COPY wheelhouse /wheels
 COPY wheelhouse.tgz /tmp/wheelhouse.tgz
@@ -43,10 +46,10 @@ ENV OFFLINE=${OFFLINE}
 # Important: for compiled packages, ensure wheelhouse contains appropriate wheels built for this base image (glibc/x86_64)
 RUN if [ "${OFFLINE}" = "true" ] && [ -d /wheels ] && [ "$(ls -A /wheels || true)" ]; then \
       pip install --no-index --find-links=/wheels pip setuptools wheel && \
-      pip install --no-index --find-links=/wheels -r requirements-api.txt ; \
+      pip install --no-index --find-links=/wheels -r /app/requirements-api.txt ; \
     else \
       pip install --upgrade pip setuptools wheel && \
-      pip install -r requirements-api.txt ; \
+      pip install -r /app/requirements-api.txt ; \
     fi
 
 
