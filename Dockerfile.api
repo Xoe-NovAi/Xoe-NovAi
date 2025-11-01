@@ -30,12 +30,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates build-essential cmake git libopenblas-dev pkg-config curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements file first
-COPY requirements-api.txt /app/requirements-api.txt
+# Install scikit-build-core for llama-cpp-python build
+RUN pip install --no-cache-dir scikit-build-core>=0.9.2
 
-# wheelhouse support (copy directory or compressed archive into build context)
-COPY wheelhouse /wheels
-COPY wheelhouse.tgz /tmp/wheelhouse.tgz
+# Copy requirements and setup files first for better layer caching
+WORKDIR /app
+COPY requirements-api.txt wheelhouse.tgz ./
+
+# Prepare wheelhouse in a single layer
+RUN mkdir -p /wheels \
+    && if [ -f wheelhouse.tgz ]; then tar -xzf wheelhouse.tgz -C /wheels; fi \
+    && rm -f wheelhouse.tgz
+
+# Alternative wheelhouse directory support
+COPY wheelhouse /wheels/
 
 RUN if [ -f /tmp/wheelhouse.tgz ]; then mkdir -p /wheels && tar -xzf /tmp/wheelhouse.tgz -C /wheels; fi \
     && if [ -d /wheels ] && [ "$(ls -A /wheels || true)" ]; then echo "wheelhouse detected with $(ls /wheels | wc -l) files"; else echo "no wheelhouse detected"; fi
@@ -45,10 +53,14 @@ ENV OFFLINE=${OFFLINE}
 
 # Important: for compiled packages, ensure wheelhouse contains appropriate wheels built for this base image (glibc/x86_64)
 RUN if [ "${OFFLINE}" = "true" ] && [ -d /wheels ] && [ "$(ls -A /wheels || true)" ]; then \
+      # First install core build dependencies
       pip install --no-index --find-links=/wheels pip setuptools wheel && \
+      pip install --no-index --find-links=/wheels scikit-build-core>=0.9.2 && \
+      # Then install project requirements
       pip install --no-index --find-links=/wheels -r /app/requirements-api.txt ; \
     else \
       pip install --upgrade pip setuptools wheel && \
+      pip install scikit-build-core>=0.9.2 && \
       pip install -r /app/requirements-api.txt ; \
     fi
 

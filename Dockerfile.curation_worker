@@ -1,50 +1,126 @@
-# Dockerfile.curation_worker
-# Builds a lightweight container for the Xoe-NovAi Curation Worker
+# ============================================================================
+# Xoe-NovAi Phase 1 v0.1.3 - Curation Worker Service Dockerfile
+# ============================================================================
+# Purpose: Process library curation jobs from Redis queue
+# Last Updated: 2025-10-29
+# Changes:
+#   - Updated to multi-stage build pattern
+#   - Added proper versioning and labels
+#   - Aligned with other Dockerfile standards
+# ============================================================================
 
-FROM python:3.12-slim AS base
+# ============================================================================
+# STAGE 1: BUILDER
+# ============================================================================
+FROM python:3.12-slim AS builder
 
-ENV APP_HOME=/app
+LABEL maintainer="Xoe-NovAi Team"
+LABEL version="0.1.3"
+LABEL description="Curation Worker Builder Stage"
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    APP_HOME=/app
+
 WORKDIR ${APP_HOME}
 
-# minimal system deps for the worker
+# System dependencies needed for builds
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ca-certificates curl build-essential git \
     && rm -rf /var/lib/apt/lists/*
 
-# --- Copy requirements and wheelhouse ---
+# Copy requirements and wheelhouse
 COPY requirements-curation_worker.txt /app/requirements-curation_worker.txt
 COPY wheelhouse /wheels
 COPY wheelhouse.tgz /tmp/wheelhouse.tgz
 
-# --- Extract wheelhouse if needed ---
+# Extract wheelhouse if provided
 RUN if [ -f /tmp/wheelhouse.tgz ]; then mkdir -p /wheels && tar -xzf /tmp/wheelhouse.tgz -C /wheels; fi \
     && if [ -d /wheels ] && [ "$(ls -A /wheels || true)" ]; then echo "wheelhouse detected with $(ls /wheels | wc -l) files"; else echo "no wheelhouse detected"; fi
 
-# --- Install dependencies ---
+# Build configuration
 ARG OFFLINE=true
 ENV OFFLINE=${OFFLINE}
 
+# Install dependencies preferring wheelhouse when OFFLINE=true
 RUN if [ "${OFFLINE}" = "true" ] && [ -d /wheels ] && [ "$(ls -A /wheels || true)" ]; then \
-      echo "Installing offline from wheelhouse..."; \
       pip install --no-index --find-links=/wheels pip setuptools wheel && \
       pip install --no-index --find-links=/wheels -r /app/requirements-curation_worker.txt ; \
     else \
-      echo "Installing online..."; \
       pip install --upgrade pip setuptools wheel && \
       pip install -r /app/requirements-curation_worker.txt ; \
     fi
 
-# --- Copy application code ---
-COPY app/XNAi_rag_app /app/XNAi_rag_app
+# Build wheels for this architecture
+WORKDIR /build
+COPY requirements-curation_worker.txt .
+RUN pip wheel --no-cache-dir --wheel-dir /wheels -r requirements-curation_worker.txt
 
-# --- Create non-root user and directories ---
-RUN groupadd -r appgroup && useradd -r -g appgroup -d /app appuser && \
-    mkdir -p /app/logs/curations /app/data/curations && \
-    chown -R appuser:appgroup /app && chmod 770 /app/logs/curations /app/data/curations
+# ============================================================================
+# STAGE 2: RUNTIME
+# ============================================================================
+FROM python:3.12-slim
 
-USER appuser
+LABEL maintainer="Xoe-NovAi Team"
+LABEL version="0.1.3"
+LABEL description="Curation Worker Runtime"
+
+# Runtime environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PATH="/home/appuser/.local/bin:$PATH" \
+    PYTHONPATH="/app:$PYTHONPATH" \
+    REDIS_URL="redis://redis:6379/0" \
+    QUEUE_KEY="curation_queue" \
+    JOB_PREFIX="curation:" \
+    MAX_ATTEMPTS=3 \
+    WORKER_NAME="curation-worker-1"
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    procps \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create non-root user and base directories
+RUN groupadd -g 1001 appuser && useradd -m -u 1001 -g appuser -s /bin/bash appuser
+
 WORKDIR /app
 
-ENV PATH="/home/appuser/.local/bin:${PATH}"
+# Copy Python packages from builder
+COPY --from=builder /wheels /wheels
 
+# Install dependencies with version control
+RUN pip install --no-cache-dir --user fastapi==0.118.0 \
+    && pip install --no-cache-dir --user aiofiles==25.1.0 \
+    && pip install --no-cache-dir --user redis==6.4.0 \
+    && pip install --no-cache-dir --user tenacity==9.1.2 \
+    && pip install --no-cache-dir --user uvicorn==0.38.0
+
+# Create necessary directories with correct permissions
+RUN mkdir -p \
+    /app/XNAi_rag_app \
+    /app/logs/curations \
+    /app/data/curations && \
+    chown -R appuser:appuser /app && \
+    chmod -R 755 /app/logs/curations /app/data/curations
+
+# Copy application code
+COPY --chown=appuser:appuser app/XNAi_rag_app /app/XNAi_rag_app
+
+# Verify critical files
+RUN test -f /app/XNAi_rag_app/curation_worker.py || (echo "ERROR: curation_worker.py not found" && ls -la /app/XNAi_rag_app && exit 1)
+
+# Switch to non-root user
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=15s --start-period=60s --retries=5 \
+    CMD curl -f http://localhost:6379 || exit 1
+
+# Default command
 CMD ["python3", "/app/XNAi_rag_app/curation_worker.py"]

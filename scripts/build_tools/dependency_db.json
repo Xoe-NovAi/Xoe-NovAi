@@ -1,0 +1,492 @@
+{
+  "chainlit": {
+    "name": "chainlit",
+    "version": "2.8.3",
+    "requesters": [
+      "requirements-chainlit.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.348817",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "httpx": {
+    "name": "httpx",
+    "version": "0.27.2",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt",
+      "requirements-chainlit.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.349163",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "orjson": {
+    "name": "orjson",
+    "version": "3.11.3",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt",
+      "requirements-chainlit.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.349476",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "toml": {
+    "name": "toml",
+    "version": "0.10.2",
+    "requesters": [
+      "requirements-crawl.txt",
+      "scripts/build_tools/requirements.txt",
+      "requirements-api.txt",
+      "requirements-chainlit.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.350154",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "json-log-formatter": {
+    "name": "json-log-formatter",
+    "version": "1.1.1",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt",
+      "requirements-chainlit.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.350671",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "tenacity": {
+    "name": "tenacity",
+    "version": "9.1.2",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt",
+      "requirements-curation_worker.txt",
+      "requirements-chainlit.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.351073",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "python-dotenv": {
+    "name": "python-dotenv",
+    "version": "1.2.1",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-chainlit.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.351493",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "pytest": {
+    "name": "pytest",
+    "version": "8.4.2",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt",
+      "requirements-chainlit.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.351887",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "pytest-asyncio": {
+    "name": "pytest-asyncio",
+    "version": "0.25.2",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt",
+      "requirements-chainlit.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.352355",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "crawl4ai": {
+    "name": "crawl4ai",
+    "version": "0.7.3 # downgraded from 0.7.4 for bugs/security issues",
+    "requesters": [
+      "requirements-crawl.txt",
+      "projects/crawl4ai-gui/requirements.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.352908",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "yt-dlp": {
+    "name": "yt-dlp",
+    "version": "2025.10.14",
+    "requesters": [
+      "requirements-crawl.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.353365",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "beautifulsoup4": {
+    "name": "beautifulsoup4",
+    "version": "4.12.3",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.354291",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "lxml": {
+    "name": "lxml",
+    "version": "5.3.0",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.354752",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "requests": {
+    "name": "requests",
+    "version": "2.32.5",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.355299",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "tqdm": {
+    "name": "tqdm",
+    "version": "4.67.1",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.356831",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "redis": {
+    "name": "redis",
+    "version": "6.4.0",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt",
+      "requirements-curation_worker.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.357360",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "pypdf": {
+    "name": "pypdf",
+    "version": "5.1.0",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.360046",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "python-docx": {
+    "name": "python-docx",
+    "version": "1.1.2",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.360685",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "pytest-cov": {
+    "name": "pytest-cov",
+    "version": "7.0.0",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.362328",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "safety": {
+    "name": "safety",
+    "version": "3.2.0",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.364066",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "llama-cpp-python": {
+    "name": "llama-cpp-python",
+    "version": "0.3.16",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.367035",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "langchain-core": {
+    "name": "langchain-core",
+    "version": "0.3.79",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.367742",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "langchain-community": {
+    "name": "langchain-community",
+    "version": "0.3.31",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.368487",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "faiss-cpu": {
+    "name": "faiss-cpu",
+    "version": "1.12.0",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.369228",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "fastapi": {
+    "name": "fastapi",
+    "version": "0.118.0",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.369950",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "uvicorn[standard]": {
+    "name": "uvicorn[standard]",
+    "version": "0.38.0",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.370804",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "pydantic": {
+    "name": "pydantic",
+    "version": "2.12.3",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.371590",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "pydantic-settings": {
+    "name": "pydantic-settings",
+    "version": "2.11.0",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.372435",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "prometheus-client": {
+    "name": "prometheus-client",
+    "version": "0.23.1",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.378493",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "psutil": {
+    "name": "psutil",
+    "version": "7.1.2",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.379423",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "slowapi": {
+    "name": "slowapi",
+    "version": "0.1.9",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.382736",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "marshmallow": {
+    "name": "marshmallow",
+    "version": "3.18.0",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.388891",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "mypy": {
+    "name": "mypy",
+    "version": "1.14.0",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.395458",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "types-redis": {
+    "name": "types-redis",
+    "version": "4.6.0.20241004",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.396852",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "types-toml": {
+    "name": "types-toml",
+    "version": "0.10.8.20240310",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.398370",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "graphviz": {
+    "name": "graphviz",
+    "version": "0.20.1",
+    "requesters": [
+      "scripts/build_tools/requirements.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.400085",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "pip": {
+    "name": "pip",
+    "version": "25.3",
+    "requesters": [
+      "scripts/build_tools/requirements.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.403438",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "wheel": {
+    "name": "wheel",
+    "version": "0.45.1",
+    "requesters": [
+      "scripts/build_tools/requirements.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.405661",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "setuptools": {
+    "name": "setuptools",
+    "version": "80.9.0",
+    "requesters": [
+      "scripts/build_tools/requirements.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.407098",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "PyQt6": {
+    "name": "PyQt6",
+    "version": "latest",
+    "requesters": [
+      "projects/crawl4ai-gui/requirements.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.408871",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "playwright": {
+    "name": "playwright",
+    "version": "latest",
+    "requesters": [
+      "projects/crawl4ai-gui/requirements.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.411568",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "lmstudio": {
+    "name": "lmstudio",
+    "version": "1.3.1",
+    "requesters": [
+      "projects/crawl4ai-gui/requirements.txt"
+    ],
+    "downloaded_at": "2025-11-01T16:41:11.413105",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  }
+}

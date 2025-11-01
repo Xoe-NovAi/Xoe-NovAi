@@ -12,10 +12,16 @@ echo "Creating wheelhouse in: ${OUTDIR}"
 rm -rf "${OUTDIR}"
 mkdir -p "${OUTDIR}"
 
-# Always include pip / setuptools / wheel so the image can upgrade pip offline
-echo "[1/4] Downloading pip setuptools wheel..."
-python3 -m pip download --only-binary=:all: pip setuptools wheel -d "${OUTDIR}" || {
-  echo "Warning: pip/setuptools/wheel download returned non-zero; continuing."
+# Always include pip, setuptools, wheel and build dependencies
+echo "[1/4] Downloading core build dependencies..."
+python3 -m pip download --only-binary=:all: pip setuptools wheel scikit-build-core -d "${OUTDIR}" || {
+  echo "Warning: core dependencies download returned non-zero; continuing."
+}
+
+# Download build requirements for llama-cpp-python
+echo "[2/4] Downloading llama-cpp-python build requirements..."
+python3 -m pip download --only-binary=:all: cmake ninja -d "${OUTDIR}" || {
+  echo "Warning: llama-cpp build dependencies download returned non-zero; continuing."
 }
 
 # Resolve each matching requirements file and download packages

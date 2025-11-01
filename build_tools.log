@@ -1,0 +1,10 @@
+2025-11-01 16:41:11,358 - dependency_tracker - WARNING - Version conflict for python-dotenv: 1.2.1 (existing) vs 1.0.1 (new) requested by requirements-crawl.txt
+2025-11-01 16:41:11,410 - dependency_tracker - WARNING - Version conflict for crawl4ai: 0.7.3 # downgraded from 0.7.4 for bugs/security issues (existing) vs latest (new) requested by projects/crawl4ai-gui/requirements.txt
+2025-11-01 16:42:48,333 - build_visualizer - INFO - Build flow diagram saved to /home/arcana-novai/Documents/GitHub/Xoe-NovAi/docs/build_visualizations/build_flow.pdf
+2025-11-01 16:44:37,146 - build_visualizer - INFO - Build timeline saved to /home/arcana-novai/Documents/GitHub/Xoe-NovAi/docs/build_visualizations/build_timeline.md
+2025-11-01 16:45:00,924 - download_wheelhouse - INFO - Processing scripts/build_tools/requirements.txt
+2025-11-01 16:45:04,450 - download_wheelhouse - INFO - Using cached wheel for toml-0.10.2-py2.py3==none
+2025-11-01 16:45:04,454 - download_wheelhouse - INFO - Using cached wheel for pip-25.3-py3==none
+2025-11-01 16:45:04,455 - download_wheelhouse - INFO - Using cached wheel for wheel-0.45.1-py3==none
+2025-11-01 16:45:04,459 - download_wheelhouse - INFO - Using cached wheel for setuptools-80.9.0-py3==none
+2025-11-01 16:45:04,460 - download_wheelhouse - INFO - Download complete: 5 packages, 3.0MB in 3.5s

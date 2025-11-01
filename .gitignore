@@ -75,3 +75,7 @@ docs/GROUP_SESSIOONS_LOG.md
 /docs/model-docs
 /wheelhouse
 wheelhouse.tgz
+/marshmallow==3.18.0
+*.tgz
+/setuptools
+UPDATES_RUNNING.md

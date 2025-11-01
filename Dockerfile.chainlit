@@ -24,9 +24,16 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /build
 
 COPY requirements-chainlit.txt .
+COPY wheelhouse ./wheelhouse
 
+# Add OFFLINE build argument for offline install
+ARG OFFLINE=false
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel \
-    && pip install --no-cache-dir -r requirements-chainlit.txt
+    && if [ "$OFFLINE" = "true" ]; then \
+        pip install --no-index --find-links=wheelhouse -r requirements-chainlit.txt; \
+    else \
+        pip install --no-cache-dir -r requirements-chainlit.txt; \
+    fi
 
 # ============================================================================
 # STAGE 2: RUNTIME
