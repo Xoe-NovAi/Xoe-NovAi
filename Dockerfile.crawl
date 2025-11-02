@@ -1,0 +1,104 @@
+# ============================================================================
+# Xoe-NovAi Phase 1 v0.1.3-beta - Crawl Service Dockerfile
+# ============================================================================
+# Purpose: Multi-stage production build for CrawlModule service
+# Guide Reference: Section 6.3.3 (Dockerfile.crawl)
+# Last Updated: 2025-11-02 (Telemetry update to official disable)
+# Features:
+#   - Offline wheelhouse support via ARG OFFLINE
+#   - Non-root user (UID=1001)
+#   - Zero-telemetry env vars (official CRAWL4AI_TELEMETRY=0)
+#   - Ryzen optimization hooks
+# ============================================================================
+
+# ============================================================================
+# STAGE 1: BUILDER
+# ============================================================================
+FROM python:3.12-slim AS builder
+
+LABEL maintainer="Xoe-NovAi Team"
+LABEL version="0.1.3-beta"
+LABEL description="Crawl Service Builder Stage"
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /build
+
+COPY requirements-crawl.txt .
+COPY wheelhouse ./wheelhouse
+
+# Offline build support
+ARG OFFLINE=false
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    if [ "$OFFLINE" = "true" ]; then \
+        pip install --no-index --find-links=wheelhouse -r requirements-crawl.txt; \
+    else \
+        pip install --no-cache-dir -r requirements-crawl.txt; \
+    fi
+
+# ============================================================================
+# STAGE 2: RUNTIME
+# ============================================================================
+FROM python:3.12-slim
+
+LABEL maintainer="Xoe-NovAi Team"
+LABEL version="0.1.3-beta"
+LABEL description="Crawl Service Runtime"
+
+# Install runtime deps (curl for health, libgomp for Ryzen opt)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    libgomp1 \
+    procps \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create non-root user
+RUN groupadd -g 1001 appuser && useradd -m -u 1001 -g 1001 -s /bin/bash appuser
+
+WORKDIR /app
+
+# Copy from builder
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy app code
+COPY app/XNAi_rag_app /app/XNAi_rag_app
+
+# Fix permissions (before USER switch)
+RUN mkdir -p /app/XNAi_rag_app/tmp \
+    /app/XNAi_rag_app/logs \
+    /library \
+    /knowledge/curator && \
+    chown -R appuser:appuser /app /library /knowledge && \
+    chmod -R 755 /app/XNAi_rag_app/logs && \
+    echo "✓ Permissions fixed: appuser owns /app"
+
+# Environment (zero-telemetry, Ryzen opt)
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    CRAWL4AI_TELEMETRY=0 \
+    N_THREADS=6 \
+    OPENBLAS_CORETYPE=ZEN \
+    OPENBLAS_NUM_THREADS=6
+
+# Validate install
+RUN python3 -c "import crawl4ai; print(f'Crawl4AI {crawl4ai.__version__} installed')" \
+    && python3 -c "import os; assert os.getenv('CRAWL4AI_TELEMETRY') == '0', 'Telemetry not disabled!'"
+
+# Expose (if needed, though crawl is CLI-driven)
+EXPOSE 8003
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --retries=5 --start-period=60s \
+    CMD curl -fs http://localhost:8003/health || exit 1
+
+# Switch user
+USER appuser
+
+# Default command (crawl.py as entrypoint)
+CMD ["python3", "XNAi_rag_app/crawl.py"]

@@ -1,0 +1,6 @@
+# Build Tools Dependencies
+graphviz==0.20.1
+toml==0.10.2
+pip==25.3
+wheel==0.45.1
+setuptools==80.9.0

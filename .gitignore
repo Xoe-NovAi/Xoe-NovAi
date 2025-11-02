@@ -75,3 +75,17 @@ docs/GROUP_SESSIOONS_LOG.md
 /docs/model-docs
 /wheelhouse
 wheelhouse.tgz
+/marshmallow==3.18.0
+*.tgz
+/setuptools
+UPDATES_RUNNING.md
+/docs/Code Fixes and Change Logs
+/.deps_cache
+/.deps_cache
+/.deps_cache
+/build_context_api
+/build_context_chainlit
+/build_context_crawl
+build_tools.log
+/.github/instructions
+/docs/Code Fixes and Change Logs
