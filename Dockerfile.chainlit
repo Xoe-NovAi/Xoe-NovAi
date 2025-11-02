@@ -75,7 +75,7 @@ RUN mkdir -p /app/XNAi_rag_app/tmp \
 # Environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    CHAINLIT_NO_TELEMETRY=true \
+    CHAINLIT_NO_TELEMETRY=0 \
     CHAINLIT_PORT=8001 \
     CHAINLIT_FILES_DIR=/app/.files
 

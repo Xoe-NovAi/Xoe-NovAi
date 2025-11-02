@@ -1,10 +1,10 @@
 # Dependency Analysis Report
 
-Generated: 2025-11-01T16:41:11.414183
+Generated: 2025-11-02T09:33:44.018227
 
 ## Package Summary
 
-- Total Packages: 42
+- Total Packages: 45
 - Unique Requesters: 6
 
 ## Version Conflicts
