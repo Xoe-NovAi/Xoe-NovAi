@@ -14,8 +14,8 @@
     "name": "httpx",
     "version": "0.27.2",
     "requesters": [
-      "requirements-crawl.txt",
       "requirements-api.txt",
+      "requirements-crawl.txt",
       "requirements-chainlit.txt"
     ],
     "downloaded_at": "2025-11-01T16:41:11.349163",
@@ -27,8 +27,8 @@
     "name": "orjson",
     "version": "3.11.3",
     "requesters": [
-      "requirements-crawl.txt",
       "requirements-api.txt",
+      "requirements-crawl.txt",
       "requirements-chainlit.txt"
     ],
     "downloaded_at": "2025-11-01T16:41:11.349476",
@@ -40,9 +40,9 @@
     "name": "toml",
     "version": "0.10.2",
     "requesters": [
+      "requirements-api.txt",
       "requirements-crawl.txt",
       "scripts/build_tools/requirements.txt",
-      "requirements-api.txt",
       "requirements-chainlit.txt"
     ],
     "downloaded_at": "2025-11-01T16:41:11.350154",
@@ -54,8 +54,8 @@
     "name": "json-log-formatter",
     "version": "1.1.1",
     "requesters": [
-      "requirements-crawl.txt",
       "requirements-api.txt",
+      "requirements-crawl.txt",
       "requirements-chainlit.txt"
     ],
     "downloaded_at": "2025-11-01T16:41:11.350671",
@@ -67,8 +67,8 @@
     "name": "tenacity",
     "version": "9.1.2",
     "requesters": [
-      "requirements-crawl.txt",
       "requirements-api.txt",
+      "requirements-crawl.txt",
       "requirements-curation_worker.txt",
       "requirements-chainlit.txt"
     ],
@@ -93,8 +93,8 @@
     "name": "pytest",
     "version": "8.4.2",
     "requesters": [
-      "requirements-crawl.txt",
       "requirements-api.txt",
+      "requirements-crawl.txt",
       "requirements-chainlit.txt"
     ],
     "downloaded_at": "2025-11-01T16:41:11.351887",
@@ -106,8 +106,8 @@
     "name": "pytest-asyncio",
     "version": "0.25.2",
     "requesters": [
-      "requirements-crawl.txt",
       "requirements-api.txt",
+      "requirements-crawl.txt",
       "requirements-chainlit.txt"
     ],
     "downloaded_at": "2025-11-01T16:41:11.352355",
@@ -191,8 +191,8 @@
     "version": "6.4.0",
     "requesters": [
       "requirements-crawl.txt",
-      "requirements-api.txt",
-      "requirements-curation_worker.txt"
+      "requirements-curation_worker.txt",
+      "requirements-api.txt"
     ],
     "downloaded_at": "2025-11-01T16:41:11.357360",
     "source": "requirements.txt",
@@ -485,6 +485,42 @@
       "projects/crawl4ai-gui/requirements.txt"
     ],
     "downloaded_at": "2025-11-01T16:41:11.413105",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "typing-extensions>=4.5.0": {
+    "name": "typing-extensions>=4.5.0",
+    "version": "latest",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-curation_worker.txt",
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-02T07:07:40.177561",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "httpx>=0.23.0": {
+    "name": "httpx>=0.23.0",
+    "version": "latest",
+    "requesters": [
+      "requirements-crawl.txt",
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-02T07:07:40.180979",
+    "source": "requirements.txt",
+    "wheel_path": null,
+    "build_flags": null
+  },
+  "pydantic>=2.7.4,<3.0.0": {
+    "name": "pydantic>=2.7.4,<3.0.0",
+    "version": "latest",
+    "requesters": [
+      "requirements-api.txt"
+    ],
+    "downloaded_at": "2025-11-02T07:07:40.226638",
     "source": "requirements.txt",
     "wheel_path": null,
     "build_flags": null

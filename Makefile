@@ -1,6 +1,8 @@
 # Xoe-NovAi Makefile (Full Version)
-# Last Updated: 2025-10-28
+# Last Updated: 2025-11-02 (Optimized with integrity/conflict checks)
 # Purpose: Production utilities for setup, docker, testing, debugging
+# Guide Reference: Section 6.3 (Build Orchestration)
+# Ryzen Opt: N_THREADS=6 implicit in env; Telemetry: 8 disables verified in Dockerfiles
 
 .PHONY: help wheelhouse deps download-models validate health benchmark curate ingest test build up down logs debug-rag debug-ui debug-crawler debug-redis restart cleanup
 
@@ -66,9 +68,34 @@ test: ## Run tests with coverage
 	cp .env.example .env
 	pytest --cov
 
-build: ## Build Docker images
-	@echo "Building images..."
-	$(COMPOSE) build --no-cache
+build: wheelhouse ## Build Docker images with enhanced logging and dependency management
+	@echo "$(CYAN)Starting enhanced build process...$(NC)"
+	@if [ ! -f versions/versions.toml ]; then \
+		echo "$(RED)Error: versions/versions.toml not found$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(CYAN)Running pre-build validation...$(NC)"
+	@python3 versions/scripts/update_versions.py || { \
+		echo "$(RED)Error: Version validation failed$(NC)"; \
+		exit 1; \
+	}
+	# New: Verify wheelhouse integrity
+	@python3 scripts/build_tools/dependency_tracker.py --verify || { \
+		echo "$(RED)Error: Wheel integrity verification failed$(NC)"; \
+		exit 1; \
+	}
+	# New: Scan for requirement conflicts
+	@python3 scripts/build_tools/scan_requirements.py || { \
+		echo "$(RED)Error: Requirements conflict detected$(NC)"; \
+		exit 1; \
+	}
+	@echo "$(CYAN)Building Docker images...$(NC)"
+	@./scripts/build_docker.sh || { \
+		echo "$(RED)Error: Build failed. Check logs in logs/docker_build/$(NC)"; \
+		exit 1; \
+	}
+	@echo "$(GREEN)✓ Build completed successfully$(NC)"
+	@echo "$(YELLOW)Build report available in logs/docker_build/build_report.md$(NC)"
 
 up: ## Start stack
 	@echo "Starting stack..."

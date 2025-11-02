@@ -6,15 +6,18 @@ This module provides tools for:
 1. Tracking which packages are downloaded
 2. Recording which files request each package
 3. Analyzing version conflicts
-4. Generating dependency graphs
+4. Generating dependency graphs (requires graphviz: pip install graphviz)
 5. Creating build reports
+6. Verifying wheel integrity
 
 Usage:
     ./dependency_tracker.py analyze-deps
     ./dependency_tracker.py generate-report
     ./dependency_tracker.py check-conflicts
+    ./dependency_tracker.py --verify  # Verify wheelhouse integrity
 """
 
+import hashlib
 import json
 import logging
 import os
@@ -26,7 +29,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 import toml
-from graphviz import Digraph
 
 # Configure logging
 logging.basicConfig(
@@ -128,6 +130,12 @@ class DependencyTracker:
     
     def generate_graph(self, output_path: str = 'dependency_graph.pdf'):
         """Generate a graphviz visualization of dependencies."""
+        try:
+            from graphviz import Digraph
+        except ImportError:
+            logger.warning("graphviz not installed. Skipping graph generation. Install with: pip install graphviz")
+            return
+        
         dot = Digraph(comment='Package Dependencies')
         dot.attr(rankdir='LR')
         
@@ -184,10 +192,62 @@ class DependencyTracker:
         
         return "\n".join(lines)
 
+# New: SHA256 integrity verification functions
+def compute_sha256(file_path: str) -> str:
+    """Compute SHA256 hash of a file."""
+    sha256 = hashlib.sha256()
+    with open(file_path, 'rb') as f:
+        for block in iter(lambda: f.read(4096), b''):
+            sha256.update(block)
+    return sha256.hexdigest()
+
+def generate_manifest(wheelhouse_dir: str) -> Dict[str, str]:
+    """Generate SHA256 manifest for all wheels in directory."""
+    manifest = {}
+    path = Path(wheelhouse_dir)
+    for whl in path.glob('*.whl'):
+        manifest[whl.name] = compute_sha256(str(whl))
+    manifest_path = path / 'wheelhouse_manifest.json'
+    with open(manifest_path, 'w') as f:
+        json.dump(manifest, f, indent=4)
+    logger.info(f"Generated manifest at {manifest_path}")
+    return manifest
+
+def verify_manifest(wheelhouse_dir: str) -> bool:
+    """Verify wheels against manifest."""
+    path = Path(wheelhouse_dir)
+    manifest_path = path / 'wheelhouse_manifest.json'
+    
+    if not manifest_path.exists():
+        logger.info("Manifest not found - generating new one")
+        generate_manifest(wheelhouse_dir)
+        return True
+    
+    with open(manifest_path) as f:
+        expected = json.load(f)
+    
+    failed = False
+    for whl_name, exp_hash in expected.items():
+        whl_path = path / whl_name
+        if not whl_path.exists():
+            logger.error(f"Missing wheel: {whl_name}")
+            failed = True
+            continue
+        actual_hash = compute_sha256(str(whl_path))
+        if actual_hash != exp_hash:
+            logger.error(f"Hash mismatch for {whl_name}: expected {exp_hash}, got {actual_hash}")
+            failed = True
+    
+    if failed:
+        return False
+    logger.info("All wheels verified successfully")
+    return True
+
 def main():
     """CLI entrypoint."""
     if len(sys.argv) < 2:
         print("Usage: dependency_tracker.py <command>")
+        print("Commands: analyze-deps, generate-report, check-conflicts, --verify")
         sys.exit(1)
     
     workspace_root = Path(__file__).parent.parent.parent
@@ -213,6 +273,16 @@ def main():
             sys.exit(1)
         else:
             print("No version conflicts found.")
+    
+    elif command == '--verify':
+        wheelhouse_dir = str(workspace_root / 'wheelhouse')  # Adjust path if needed
+        if len(sys.argv) > 2:
+            wheelhouse_dir = sys.argv[2]
+        verify_manifest(wheelhouse_dir)
+    
+    else:
+        print(f"Unknown command: {command}")
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
