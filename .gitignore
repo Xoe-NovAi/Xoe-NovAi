@@ -75,6 +75,7 @@ docs/GROUP_SESSIOONS_LOG.md
 /docs/model-docs
 /wheelhouse
 wheelhouse.tgz
+<<<<<<< Updated upstream
 /marshmallow==3.18.0
 *.tgz
 /setuptools
@@ -89,3 +90,12 @@ UPDATES_RUNNING.md
 build_tools.log
 /.github/instructions
 /docs/Code Fixes and Change Logs
+=======
+/build_context_api
+/build_context_chainlit
+/build_context_crawl
+/docs/Code Fixes and Change Logs
+UPDATES_RUNNING.md
+/.github/instructions
+.deps_cache
+>>>>>>> Stashed changes
