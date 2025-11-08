@@ -40,7 +40,6 @@ __pycache__/
 *.rdb
 
 # Local script outputs and archives
-scripts/stack-cat/
 scripts/stack-cat_old_versions_archive.7z
 scripts/stack-cat_v012.sh.txt
 scripts/stack-cat-output/
@@ -161,7 +160,6 @@ projects/Code-Weaver/xnai_v013_guide_sections_0-5.md
 /projects/stack-scribe
 /projects/XNAi - Crawl Module
 /scripts
-/scripts/stack-cat
 scripts/stack-cat/groups.json
 <<<<<<< Updated upstream
 <<<<<<< Updated upstream
