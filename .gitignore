@@ -87,6 +87,7 @@ UPDATES_RUNNING.md
 build_tools.log
 /.github/instructions
 /docs/Code Fixes and Change Logs
+<<<<<<< Updated upstream
 /projects/Code-Weaver/Sectional Batched Guide - Claude Sonnet/Code Fix Recommends
 /projects/Code-Weaver/Sectional Batched Guide - Claude Sonnet/Guide Fix Recommends
 /projects/Code-Weaver/Sectional Batched Guide - Claude Sonnet/Code Updatea from Guide
@@ -100,13 +101,48 @@ build_tools.log
 /projects/Offline Builder
 /projects/stack-scribe
 /projects/Chainlit-no-telemetry
+=======
+=======
+/build_context_api
+/build_context_chainlit
+/build_context_crawl
+/docs/Code Fixes and Change Logs
+UPDATES_RUNNING.md
+/.github/instructions
+.deps_cache
+/projects/Code-Weaver/Sectional Batched Guide - Claude Sonnet/Code Fix Recommends
+/projects/Code-Weaver/Sectional Batched Guide - Claude Sonnet/Code Updatea from Guide
+/projects/Code-Weaver/Sectional Batched Guide - Claude Sonnet/Guide Fix Recommends
+/projects/Code-Weaver/Sectional Batched Guide - Claude Sonnet/Prompts and Other
+/projects/Code-Weaver/Sectional Batched Guide - Claude Sonnet/stack-cat-output
+projects/Code-Weaver/Sectional Batched Guide - Claude Sonnet/stack-cat_v013.sh
+/projects/Code-Weaver/Sectional Batched Guide - Claude Sonnet/v0.1.4 UPDATES
+projects/Code-Weaver/Split_Guide_Project.old_09_01.md
+/projects/Code-Weaver/Strategy docs
+/projects/crawl4ai-gui/crawler_gui/bin
+/projects/crawl4ai-gui/crawler_gui/include
+/projects/crawl4ai-gui
+/projects/Stack-Cat
+>>>>>>> Stashed changes
 projects/Code-Weaver/Code_Weaver - Claude system prompt v1.0 - by Claude.md
 projects/Code-Weaver/Code_Weaver - Claude system prompt v1.0- updated by Grok.md
 projects/Code-Weaver/GROUP_SESSIOONS_LOG.md
 projects/Code-Weaver/NotebookLM Utilization and Grok Deep Research on Multi-Agent Simulation.md
 projects/Code-Weaver/README_v1.md
+<<<<<<< Updated upstream
 projects/Code-Weaver/Sectional Batched Guide - Claude Sonnet/stack-cat_v013.sh
 projects/Code-Weaver/Split_Guide_Project.old_09_01.md
 projects/Code-Weaver/Strategy docs/Grok - guide improvement report 10-27.md
 projects/Code-Weaver/xnai_v013_guide_sections_0-5.md
 /projects/XNAi - Crawl Module
+=======
+/projects/Chainlit-no-telemetry
+projects/Code-Weaver/xnai_v013_guide_sections_0-5.md
+/projects/Offline Builder
+/projects/stack-butler
+/projects/stack-scribe
+/projects/XNAi - Crawl Module
+/scripts
+/scripts/stack-cat
+scripts/stack-cat/groups.json
+>>>>>>> Stashed changes
