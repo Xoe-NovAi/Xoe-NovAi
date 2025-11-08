@@ -7,18 +7,20 @@
     "requirements-api.txt",
     "requirements-chainlit.txt",
     "requirements-crawl.txt",
+    "requirements-curation_worker.txt",
     "config.toml",
     ".env",
     ".env.example",
     ".dockerignore",
     ".gitignore",
-    "Makefile",
-    "README.md"
+    "Makefile"
   ],
   "allowed_dirs": [
     "app/XNAi_rag_app/",
     "scripts/",
-    "tests/"
+    "tests/",
+    "versions/",
+    "versions/scripts/"
   ],
   "excluded_dirs": [
     "__pycache__",

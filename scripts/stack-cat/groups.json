@@ -5,10 +5,12 @@
       "Dockerfile.api",
       "Dockerfile.chainlit", 
       "Dockerfile.crawl",
+      "Dockerfile.cuaration_worker",
       "docker-compose.yml",
       "requirements-api.txt",
       "requirements-chainlit.txt",
       "requirements-crawl.txt",
+      "requirements-curation_worker.txt",
       "config.toml",
       ".env",
       ".env.example",
@@ -19,7 +21,9 @@
       "app/XNAi_rag_app/*.py",
       "scripts/*.py",
       "scripts/*.sh",
-      "tests/*.py"
+      "tests/*.py",
+      "versions/*.md",
+      "versions/scripts/*.py"
     ]
   },
   "api": {
