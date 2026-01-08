@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 - Chainlit UI Application (PRODUCTION-READY)
+# Xoe-NovAi Phase 1 v0.1.4-stable - Chainlit UI Application (PRODUCTION-READY)
 # ============================================================================
 # Purpose: Async Chainlit interface with RAG API integration
 # Guide Reference: Section 4.2 (Complete app.py Implementation)
@@ -23,6 +23,7 @@ import uuid
 from typing import Optional, Dict, Any
 from datetime import datetime
 from subprocess import Popen, PIPE, DEVNULL
+import re
 
 # Chainlit
 import chainlit as cl
@@ -62,7 +63,7 @@ API_TIMEOUT = int(os.getenv('API_TIMEOUT_SECONDS', 60))
 ENABLE_LOCAL_FALLBACK = LOCAL_LLM_AVAILABLE
 PHASE2_REDIS_SESSIONS = os.getenv('PHASE2_REDIS_SESSIONS', 'false').lower() == 'true'
 
-logger.info(f"Chainlit UI initialized v0.1.2")
+logger.info(f"Chainlit UI initialized v0.1.4-stable")
 logger.info(f"  - API: {RAG_API_URL}")
 logger.info(f"  - Local fallback: {ENABLE_LOCAL_FALLBACK}")
 logger.info(f"  - Phase 2 Redis: {PHASE2_REDIS_SESSIONS}")
@@ -368,7 +369,20 @@ Use `/help` to see available commands.
 """
         
         source, category, query = parts[1], parts[2], ' '.join(parts[3:])
-        
+
+        # SECURITY FIX: Input validation to prevent command injection
+        valid_sources = ['gutenberg', 'arxiv', 'pubmed', 'youtube', 'test']
+        if source not in valid_sources:
+            return f"❌ **Invalid source:** `{source}`\n\nValid sources: {', '.join(valid_sources)}"
+
+        # Validate category (path traversal protection)
+        if not re.match(r'^[a-zA-Z0-9_-]{1,50}$', category):
+            return "❌ **Invalid category:** Only letters, numbers, hyphens, and underscores allowed (max 50 chars)"
+
+        # Validate query (prevent command injection)
+        if not re.match(r'^[a-zA-Z0-9\s\-_.,()\[\]{}]{1,200}$', query):
+            return "❌ **Invalid query:** Only letters, numbers, spaces, and basic punctuation allowed (max 200 chars)"
+
         try:
             # Non-blocking subprocess dispatch
             proc = Popen(

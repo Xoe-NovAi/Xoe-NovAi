@@ -22,6 +22,7 @@ embeddings/
 
 # Internal development notes and summaries
 updates/
+docs/projects/*
 
 # Git metadata (already ignored by Git, included for clarity)
 .git/

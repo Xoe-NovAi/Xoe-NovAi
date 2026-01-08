@@ -1,20 +1,20 @@
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 Application Configuration
+# Xoe-NovAi Phase 1 v0.1.4-stable Application Configuration
 # ============================================================================
 # Purpose: Centralized application-level settings (complements .env runtime)
 # Usage: Loaded by config_loader.py via toml.load() at startup
 # Validation: python3 -c "import toml; toml.load('config.toml')"
-# Guide Reference: Section 2.2 (Complete config.toml Specification)
-# Last Updated: 2025-10-18
-# Sections: 22 total (removed [entrypoints] in v0.1.2)
+# Guide Reference: Section 3.1 (config.toml Structure - 23 sections)
+# Last Updated: 2025-11-08
+# Sections: 23 total (v0.1.4-stable)
 # ============================================================================
 
 # ============================================================================
 # [metadata] - Stack Identity
 # ============================================================================
 [metadata]
-stack_version = "v0.1.2"
-release_date = "2025-10-18"
+stack_version = "v0.1.4-stable"
+release_date = "2025-11-08"
 codename = "Polymath Foundation"
 description = "CPU-optimized local AI RAG stack with CrawlModule v0.1.7"
 architecture = "streaming-first, zero-telemetry, modular, library-curation"
@@ -34,7 +34,7 @@ multi_agent_coordination = false
 # [models] - LLM & Embedding Specifications
 # ============================================================================
 [models]
-llm_path = "/models/gemma-3-4b-it-UD-Q5_K_XL.gguf"
+llm_path = "/models/local/all/gemma-3-4b-it-UD-Q5_K_XL.gguf"
 llm_size_gb = 2.8
 llm_quantization = "Q5_K_XL"
 llm_context_window = 2048
@@ -52,14 +52,14 @@ token_rate_min = 15
 token_rate_target = 20
 token_rate_max = 25
 # Memory limits in bytes (1 GB = 1073741824 bytes)
-memory_limit_bytes = 6442450944  # 6.0 GB
-memory_warning_threshold_bytes = 5905580032  # 5.5 GB
-memory_critical_threshold_bytes = 6228254720  # 5.8 GB
+memory_limit_bytes = 5368709120  # 5.0 GB
+memory_warning_threshold_bytes = 4831838208  # 4.5 GB
+memory_critical_threshold_bytes = 5153960960  # 4.8 GB
 
 # Legacy GB settings (DEPRECATED - use _bytes values above)
-memory_limit_gb = 6.0  # DEPRECATED
-memory_warning_threshold_gb = 5.5  # DEPRECATED
-memory_critical_threshold_gb = 5.8  # DEPRECATED
+memory_limit_gb = 5.0  # DEPRECATED - minimum required by validation (5-32GB range)
+memory_warning_threshold_gb = 4.5  # DEPRECATED
+memory_critical_threshold_gb = 4.8  # DEPRECATED
 latency_target_ms = 1000
 latency_warning_ms = 1500
 cpu_threads = 6
@@ -279,7 +279,8 @@ timeout_seconds = 15
 retries = 5
 start_period_seconds = 90
 command = "python3 /app/XNAi_rag_app/healthcheck.py"
-targets = ["llm", "embeddings", "memory", "redis", "vectorstore", "ryzen", "crawler"]
+targets = ["llm", "embeddings", "memory", "redis", "vectorstore", "ryzen", "crawler", "telemetry"]
+# Note: 8 total checks (all listed above, redis_streams is integrated into check_redis)
 
 [healthcheck.thresholds]
 memory_max_gb = 6.0

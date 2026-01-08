@@ -3,7 +3,7 @@
 ## Current Versions
 
 ### Versions
-- fastapi: 0.120.4
+- fastapi: 0.116.1
 - chainlit: 2.8.3
 - pydantic: 2.5.2
 - uvicorn: 0.24.0.post1
@@ -27,7 +27,7 @@
 - isort: 5.12.0
 
 ### Constraints
-- fastapi: 0.120.4
+- fastapi: 0.116.1
 - chainlit: 2.8.3
 - aiofiles: < 25.0.1, >= 23.1.0
 - httpx: >=0.27.0

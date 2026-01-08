@@ -1,22 +1,24 @@
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 - FastAPI RAG Service Dependencies
+# Xoe-NovAi Phase 1 v0.1.4-stable - FastAPI RAG Service Dependencies (PRODUCTION)
 # ============================================================================
 # Purpose: Production dependencies for RAG API with LLM/FAISS/Redis
-# Guide Reference: Section 4 (Core Dependencies)
-# Last Updated: 2025-10-13
+# Status: Production Ready (FAISS Release - v0.1.4-stable)
+# Guide Reference: Section 4 (Core Dependencies), Section 8 (Optimization)
+# Last Updated: 2026-01-03 (Production Optimization)
 # Python: 3.12.7
 # 
 # Installation:
 #   pip install -r requirements-api.txt
 # 
 # Validation:
-#   python3 verify_imports.py
+#   python3 -c "import llama_cpp; import langchain; import faiss; print('✓ All core libraries ready')"
 #   pip list | grep -E "redis|llama|langchain|faiss"
 # 
-# Notes:
-#   - llama-cpp-python requires CMAKE_ARGS for Ryzen optimization
-#   - All versions from guide dependency matrix (Section 4)
-#   - Zero-telemetry enforced via environment variables
+# Production Notes:
+#   ✓ llama-cpp-python compiled with Ryzen optimization in Dockerfile
+#   ✓ All versions from guide dependency matrix (Section 4)
+#   ✓ Zero-telemetry enforced via environment variables
+#   ✓ Dev dependencies removed (pytest, mypy, safety removed for production)
 # ============================================================================
 
 # ============================================================================
@@ -24,8 +26,16 @@
 # ============================================================================
 # llama-cpp-python compiled with Ryzen optimization in Dockerfile
 # CMAKE_ARGS="-DLLAMA_BLAS=ON -DLLAMA_BLAS_VENDOR=OpenBLAS -DLLAMA_AVX2=ON -DLLAMA_FMA=ON -DLLAMA_F16C=ON"
-llama-cpp-python==0.3.16
+
+# llama-cpp-python==0.3.16
 typing-extensions>=4.5.0
+
+# ============================================================================
+# LIBRARY API INTEGRATIONS & HTTP
+# ============================================================================
+# Required for library metadata enrichment during curation
+requests>=2.31.0
+urllib3>=2.1.0
 
 # ============================================================================
 # RAG & VECTORSTORE
@@ -37,8 +47,8 @@ faiss-cpu==1.12.0
 # ============================================================================
 # API FRAMEWORK
 # ============================================================================
-fastapi==0.120.4
-uvicorn[standard]==0.38.0
+fastapi>=0.116.1,<0.117  # Compatible with chainlit 2.8.3
+uvicorn[standard]>=0.38.0
 pydantic>=2.7.4,<3.0.0
 pydantic-settings==2.11.0
 
@@ -57,6 +67,13 @@ tqdm==4.67.1
 requests==2.32.5
 
 # ============================================================================
+# CONTENT INGESTION
+# ============================================================================
+feedparser==6.0.10         # RSS feed parsing
+python-magic==0.4.27       # File type detection
+beautifulsoup4==4.12.3     # HTML/XML parsing for web scraping
+
+# ============================================================================
 # MONITORING & LOGGING
 # ============================================================================
 prometheus-client==0.23.1
@@ -68,34 +85,16 @@ json-log-formatter==1.1.1
 # ============================================================================
 tenacity==9.1.2
 slowapi==0.1.9
+pybreaker==0.7.0  # Circuit breaker (Pattern 5 - standardized per blueprint v0.1.4)
 
 # ============================================================================
-# TESTING (Optional for container, required for CI/CD)
+# TYPE CHECKING & TESTING (REMOVED FOR PRODUCTION)
 # ============================================================================
-pytest==8.4.2
-pytest-cov==7.0.0
-pytest-asyncio==0.25.2
+# Removed: pytest, pytest-cov, pytest-asyncio, mypy, safety
+# Reason: Dev/testing dependencies not needed in production image
+# For CI/CD testing, use separate requirements-dev.txt or requirements-test.txt
 
-# ============================================================================
-# SECURITY SCANNING
-# ============================================================================
-safety==3.2.0
-
-# Compatibility for safety & dataclasses-json
-marshmallow==3.18.0
-
-# ============================================================================
-# DOCUMENT PROCESSING
-# ============================================================================
-pypdf==5.1.0
-python-docx==1.1.2
-beautifulsoup4==4.12.3
-lxml==5.3.0
-
-# ============================================================================
-# TYPE CHECKING (Development)
-# ============================================================================
-mypy==1.14.0
-redis==6.4.0
-types-redis==4.6.0.20241004
-types-toml==0.10.8.20240310
+# Keep types only for static analysis in development environments
+# (not included in production image)
+# types-redis==4.6.0.20241004
+# types-toml==0.10.8.20240310

@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 - Health Check Module
+# Xoe-NovAi Phase 1 v0.1.4-stable - Health Check Module
 # ============================================================================
 # Purpose: Comprehensive health monitoring for all stack components
-# Guide Reference: Section 5.3 (7 Modular Health Checks)
-# Last Updated: 2025-10-13
+# Guide Reference: Section 5.3 (8 Modular Health Checks)
+# Last Updated: 2025-11-08
+# CRITICAL FIX: Added import path resolution (Pattern 1)
 # Features:
-#   - 7 modular health checks (LLM, embeddings, memory, Redis, vectorstore, Ryzen, crawler)
+#   - 8 modular health checks (LLM, embeddings, memory, Redis, vectorstore, Ryzen, crawler, redis_streams)
 #   - Configurable thresholds from config.toml
 #   - Detailed error reporting
 #   - Docker healthcheck compatible (exit codes)
-#   - NEW v0.1.2: check_crawler() for CrawlModule validation
+#   - NEW v0.1.4: check_crawler() for CrawlModule validation
 # ============================================================================
 
 import os
@@ -18,6 +19,10 @@ import sys
 import time
 import logging
 from typing import Dict, Tuple, List, Optional
+from pathlib import Path
+
+# CRITICAL FIX: Import path resolution (Pattern 1)
+sys.path.insert(0, str(Path(__file__).parent))
 
 # System monitoring
 import psutil
@@ -32,13 +37,32 @@ from dependencies import get_llm, get_embeddings, get_vectorstore, get_curator
 logger = logging.getLogger(__name__)
 CONFIG = load_config()
 
+# Health check cache to avoid expensive operations
+_health_cache = {}
+_CACHE_TIMEOUT = 300  # 5 minutes
+
+def _get_cached_result(check_name: str) -> Optional[Tuple[bool, str]]:
+    """Get cached health check result if still valid."""
+    if check_name in _health_cache:
+        cached_time, result = _health_cache[check_name]
+        if time.time() - cached_time < _CACHE_TIMEOUT:
+            return result
+        else:
+            # Cache expired, remove it
+            del _health_cache[check_name]
+    return None
+
+def _cache_result(check_name: str, result: Tuple[bool, str]):
+    """Cache a health check result."""
+    _health_cache[check_name] = (time.time(), result)
+
 # ============================================================================
 # HEALTH CHECK FUNCTIONS
 # ============================================================================
 
 def check_llm(timeout_s: int = 10) -> Tuple[bool, str]:
     """
-    Test LLM inference capability.
+    Test LLM inference capability (with caching).
     
     Guide Reference: Section 5.3.1 (LLM Health Check)
     
@@ -58,30 +82,39 @@ def check_llm(timeout_s: int = 10) -> Tuple[bool, str]:
         >>> print(success, msg)
         True 'LLM operational: 0.5s response'
     """
+    # Check cache first
+    cached = _get_cached_result('llm')
+    if cached:
+        return cached
+
     try:
         start = time.time()
-        
+
         # Initialize LLM (cached if already loaded)
         llm = get_llm()
-        
+
         # Test inference (minimal tokens)
         response = llm.invoke("Test", max_tokens=5)
-        
+
         elapsed = time.time() - start
-        
+
         # Validate response
         if not response or len(response.strip()) == 0:
-            return False, "LLM returned empty response"
-        
-        # Check timeout
-        if elapsed > timeout_s:
-            return False, f"LLM response timeout: {elapsed:.1f}s > {timeout_s}s"
-        
-        return True, f"LLM operational: {elapsed:.2f}s response"
-        
+            result = (False, "LLM returned empty response")
+        elif elapsed > timeout_s:
+            result = (False, f"LLM response timeout: {elapsed:.1f}s > {timeout_s}s")
+        else:
+            result = (True, f"LLM operational: {elapsed:.2f}s response")
+
+        # Cache result
+        _cache_result('llm', result)
+        return result
+
     except Exception as e:
         logger.error(f"LLM health check failed: {e}", exc_info=True)
-        return False, f"LLM error: {str(e)[:100]}"
+        result = (False, f"LLM error: {str(e)[:100]}")
+        _cache_result('llm', result)
+        return result
 
 def check_embeddings() -> Tuple[bool, str]:
     """
@@ -180,7 +213,7 @@ def check_redis(timeout_s: int = 5) -> Tuple[bool, str]:
     1. Redis connection successful
     2. PING command responds
     3. Can set/get test key
-    4. NEW v0.1.2: Streams available (for Phase 2)
+    4. NEW v0.1.4: Streams available (for Phase 2)
     
     Args:
         timeout_s: Connection timeout in seconds
@@ -221,7 +254,7 @@ def check_redis(timeout_s: int = 5) -> Tuple[bool, str]:
         info = client.info('server')
         redis_version = info.get('redis_version', 'unknown')
         
-        # NEW v0.1.2: Check streams support
+        # NEW v0.1.4: Check streams support
         try:
             # Test stream creation (Phase 2 prep)
             stream_name = 'xnai_health_test_stream'
@@ -243,7 +276,7 @@ def check_redis(timeout_s: int = 5) -> Tuple[bool, str]:
 
 def check_vectorstore(timeout_s: int = 10) -> Tuple[bool, str]:
     """
-    Test FAISS vectorstore availability and search.
+    Test FAISS vectorstore availability and search (with caching).
     
     Guide Reference: Section 5.3.5 (Vectorstore Health Check)
     
@@ -258,37 +291,47 @@ def check_vectorstore(timeout_s: int = 10) -> Tuple[bool, str]:
     Returns:
         Tuple of (success, message)
     """
+    # Check cache first
+    cached = _get_cached_result('vectorstore')
+    if cached:
+        return cached
+
     try:
         # Get embeddings first
         embeddings = get_embeddings()
-        
+
         # Load vectorstore
         vectorstore = get_vectorstore(embeddings)
-        
+
         if vectorstore is None:
-            return False, "Vectorstore not found (run ingest_library.py)"
-        
-        # Check vector count
-        vector_count = vectorstore.index.ntotal
-        if vector_count == 0:
-            return False, "Vectorstore empty (0 vectors)"
-        
-        # Test search (with timeout)
-        start = time.time()
-        results = vectorstore.similarity_search("test query", k=1)
-        elapsed = time.time() - start
-        
-        if elapsed > timeout_s:
-            return False, f"Vectorstore search timeout: {elapsed:.1f}s > {timeout_s}s"
-        
-        if not results:
-            return False, "Vectorstore search returned no results"
-        
-        return True, f"Vectorstore operational: {vector_count} vectors, {elapsed:.2f}s search"
-        
+            result = (False, "Vectorstore not found (run ingest_library.py)")
+        else:
+            # Check vector count
+            vector_count = vectorstore.index.ntotal
+            if vector_count == 0:
+                result = (False, "Vectorstore empty (0 vectors)")
+            else:
+                # Test search (with timeout)
+                start = time.time()
+                results = vectorstore.similarity_search("test query", k=1)
+                elapsed = time.time() - start
+
+                if elapsed > timeout_s:
+                    result = (False, f"Vectorstore search timeout: {elapsed:.1f}s > {timeout_s}s")
+                elif not results:
+                    result = (False, "Vectorstore search returned no results")
+                else:
+                    result = (True, f"Vectorstore operational: {vector_count} vectors, {elapsed:.2f}s search")
+
+        # Cache result
+        _cache_result('vectorstore', result)
+        return result
+
     except Exception as e:
         logger.error(f"Vectorstore health check failed: {e}", exc_info=True)
-        return False, f"Vectorstore error: {str(e)[:100]}"
+        result = (False, f"Vectorstore error: {str(e)[:100]}")
+        _cache_result('vectorstore', result)
+        return result
 
 def check_ryzen() -> Tuple[bool, str]:
     """
@@ -352,7 +395,7 @@ def check_ryzen() -> Tuple[bool, str]:
 
 def check_crawler(timeout_s: int = 10) -> Tuple[bool, str]:
     """
-    Verify CrawlModule is available and responsive (NEW v0.1.2).
+    Verify CrawlModule is available and responsive (NEW v0.1.4).
     
     Guide Reference: Section 5.3.7 (Crawler Health Check)
     Guide Reference: Section 9 (CrawlModule Integration)
@@ -401,6 +444,64 @@ def check_crawler(timeout_s: int = 10) -> Tuple[bool, str]:
         logger.error(f"Crawler health check failed: {e}", exc_info=True)
         return False, f"CrawlModule error: {str(e)[:100]}"
 
+def check_telemetry() -> Tuple[bool, str]:
+    """
+    Verify all 8 telemetry disables are enforced (NEW v0.1.4).
+    
+    Guide Reference: Section 2 (8 Telemetry Disables)
+    
+    This verifies:
+    1. CHAINLIT_NO_TELEMETRY=true
+    2. CRAWL4AI_TELEMETRY=0
+    3. LANGCHAIN_TRACING_V2=false
+    4. SCARF_NO_ANALYTICS=true
+    5. DO_NOT_TRACK=1
+    6. PYTHONDONTWRITEBYTECODE=1
+    7. config.project.telemetry_enabled=false
+    8. config.chainlit.no_telemetry=true
+    
+    Returns:
+        Tuple of (success, message)
+    """
+    try:
+        disables = {
+            'CHAINLIT_NO_TELEMETRY': 'true',
+            'CRAWL4AI_TELEMETRY': '0',
+            'LANGCHAIN_TRACING_V2': 'false',
+            'SCARF_NO_ANALYTICS': 'true',
+            'DO_NOT_TRACK': '1',
+            'PYTHONDONTWRITEBYTECODE': '1',
+        }
+        
+        failed = []
+        
+        # Check environment variables
+        for var, expected in disables.items():
+            value = os.environ.get(var, '')
+            if value.lower() != expected.lower():
+                failed.append(f"{var}={value or 'unset'}")
+        
+        # Check config
+        try:
+            project = CONFIG.get('project', {})
+            if project.get('telemetry_enabled', True):
+                failed.append("project.telemetry_enabled not false")
+            
+            chainlit = CONFIG.get('chainlit', {})
+            if not chainlit.get('no_telemetry', False):
+                failed.append("chainlit.no_telemetry not true")
+        except Exception as e:
+            logger.debug(f"Config check skipped: {e}")
+        
+        if failed:
+            return False, f"Telemetry disables incomplete: {', '.join(failed)}"
+        
+        return True, "Telemetry: 8/8 disables verified"
+        
+    except Exception as e:
+        logger.error(f"Telemetry health check failed: {e}", exc_info=True)
+        return False, f"Telemetry check error: {str(e)[:100]}"
+
 # ============================================================================
 # ORCHESTRATION
 # ============================================================================
@@ -435,7 +536,7 @@ def run_health_checks(
     if targets is None:
         targets = get_config_value(
             'healthcheck.targets',
-            ['llm', 'embeddings', 'memory', 'redis', 'vectorstore', 'ryzen', 'crawler']
+            ['llm', 'embeddings', 'memory', 'redis', 'vectorstore', 'ryzen', 'crawler', 'telemetry']
         )
     
     # Critical checks only
@@ -450,7 +551,8 @@ def run_health_checks(
         'redis': check_redis,
         'vectorstore': check_vectorstore,
         'ryzen': check_ryzen,
-        'crawler': check_crawler,  # NEW v0.1.2
+        'crawler': check_crawler,  # NEW v0.1.4
+        'telemetry': check_telemetry,  # NEW v0.1.4 - Blueprint requirement
     }
     
     results = {}
@@ -484,7 +586,7 @@ def print_health_report(results: Dict[str, Tuple[bool, str]]):
         results: Dict of health check results
     """
     print("=" * 70)
-    print("Xoe-NovAi Health Check Report v0.1.2")
+    print("Xoe-NovAi Health Check Report v0.1.4-stable")
     print("=" * 70)
     print()
     
@@ -533,7 +635,7 @@ def main() -> int:
         # Parse arguments
         import argparse
         
-        parser = argparse.ArgumentParser(description='Xoe-NovAi Health Check v0.1.2')
+        parser = argparse.ArgumentParser(description='Xoe-NovAi Health Check v0.1.4-stable')
         parser.add_argument(
             'targets',
             nargs='*',

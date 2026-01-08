@@ -1,0 +1,456 @@
+diff --git a/app/XNAi_rag_app/ingest_checkpoint.py b/app/XNAi_rag_app/ingest_checkpoint.py
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/app/XNAi_rag_app/ingest_checkpoint.py
+@@ -0,0 +1,214 @@
++from __future__ import annotations
++import json
++import hashlib
++import os
++from pathlib import Path
++from typing import Optional, Dict
++from datetime import datetime
++
++DEFAULT_MANIFEST = "manifest.json"
++
++class CheckpointManager:
++    def __init__(self, dir_path: str, manifest_name: str = DEFAULT_MANIFEST):
++        self.dir = Path(dir_path)
++        self.manifest = self.dir / manifest_name
++        self.dir.mkdir(parents=True, exist_ok=True)
++        self._load_manifest()
++
++    def _load_manifest(self) -> None:
++        if self.manifest.exists():
++            try:
++                with self.manifest.open("r", encoding="utf-8") as fh:
++                    self.state = json.load(fh)
++            except Exception:
++                # Corrupt manifest: preserve file and start new
++                self.state = {"checkpoints": [] , "last_saved": None}
++        else:
++            self.state = {"checkpoints": [] , "last_saved": None}
++
++    @staticmethod
++    def _sha256_file(path: Path) -> str:
++        h = hashlib.sha256()
++        with path.open("rb") as fh:
++            for chunk in iter(lambda: fh.read(8192), b""):
++                h.update(chunk)
++        return h.hexdigest()
++
++    def atomic_write(self, src_path: Path, dest_path: Path) -> None:
++        # Atomic replace: ensure same filesystem
++        tmp = dest_path.with_suffix(dest_path.suffix + ".tmp")
++        os.replace(str(src_path), str(dest_path)) if src_path.exists() else None
++        # Note: caller should write tmp file then rename to final via os.replace()
++
++    def save_index_atomic(self, index_path: Path, batch_num: int, checksum: Optional[str]=None) -> Dict:
++        """
++        Save a pre-written index file `index_path` by atomically moving it into checkpoint dir.
++        Returns checkpoint metadata dict.
++        """
++        final_name = f"faiss_index_{batch_num:06d}.idx"
++        final_path = self.dir / final_name
++        # write index_path is expected to be written by caller as tmp; we atomically replace
++        # but to be safe, we compute checksum now
++        if not index_path.exists():
++            raise FileNotFoundError(f"Index file not found: {index_path}")
++        actual_checksum = self._sha256_file(index_path)
++        if checksum and checksum != actual_checksum:
++            raise ValueError("Provided checksum mismatch")
++        tmp_dest = self.dir / (final_name + ".tmp")
++        # move into tmp dest then os.replace
++        os.replace(str(index_path), str(tmp_dest))
++        os.replace(str(tmp_dest), str(final_path))
++        ts = datetime.utcnow().isoformat() + "Z"
++        entry = {"batch": batch_num, "file": str(final_path), "sha256": actual_checksum, "time": ts}
++        self.state["checkpoints"].append(entry)
++        self.state["last_saved"] = ts
++        # write manifest atomically
++        tmp_manifest = self.manifest.with_suffix(".tmp")
++        tmp_manifest.write_text(json.dumps(self.state, ensure_ascii=False, indent=2), encoding="utf-8")
++        os.replace(str(tmp_manifest), str(self.manifest))
++        return entry
++
++    def latest_checkpoint(self) -> Optional[str]:
++        if not self.state.get("checkpoints"):
++            return None
++        return self.state["checkpoints"][-1]["file"]
++
++    def validate_latest(self) -> bool:
++        latest = self.latest_checkpoint()
++        if not latest:
++            return False
++        p = Path(latest)
++        if not p.exists():
++            return False
++        # verify checksum
++        known = self.state["checkpoints"][-1].get("sha256")
++        actual = self._sha256_file(p)
++        return known == actual
++
+diff --git a/tests/test_ingest_checkpoint_atomic.py b/tests/test_ingest_checkpoint_atomic.py
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/tests/test_ingest_checkpoint_atomic.py
+@@ -0,0 +1,39 @@
++from pathlib import Path
++from app.XNAi_rag_app.ingest_checkpoint import CheckpointManager
++
++def test_save_and_validate(tmp_path):
++    idx_dir = tmp_path / "faiss"
++    idx_dir.mkdir()
++    cm = CheckpointManager(str(idx_dir))
++    # create a fake index file in /tmp then move through save_index_atomic
++    tmp_file = tmp_path / "tmp.idx"
++    tmp_file.write_bytes(b"FAKEINDEX123")
++    meta = cm.save_index_atomic(tmp_file, batch_num=1)
++    assert "file" in meta
++    latest = cm.latest_checkpoint()
++    assert latest is not None
++    assert Path(latest).exists()
++    assert cm.validate_latest() is True
++
+diff --git a/scripts/test_ingestion_resume.sh b/scripts/test_ingestion_resume.sh
+new file mode 100755
+index 0000000..e69de29
+--- /dev/null
++++ b/scripts/test_ingestion_resume.sh
+@@ -0,0 +1,40 @@
++#!/usr/bin/env bash
++set -euo pipefail
++# scripts/test_ingestion_resume.sh
++# Usage: ./scripts/test_ingestion_resume.sh
++# Simulates ingestion, kills, and resumes
++
++WORKDIR="/tmp/xnai_ingest_test"
++mkdir -p "$WORKDIR"
++python - <<'PY'
++from pathlib import Path
++from app.XNAi_rag_app.ingest_checkpoint import CheckpointManager
++import time
++
++WORKDIR = Path("/tmp/xnai_ingest_test")
++cm = CheckpointManager(str(WORKDIR/"faiss"))
++# simulate writing temp file and saving 3 batches
++for i in range(1,4):
++    tmp = WORKDIR / f"tmp_{i}.idx"
++    tmp.write_bytes(b"IDX_BATCH_%d" % i)
++    cm.save_index_atomic(tmp, i)
++    print("Saved batch", i)
++    time.sleep(0.1)
++print("Done")
++PY
++
++echo "Manifest:"
++cat /tmp/xnai_ingest_test/faiss/manifest.json
++
+diff --git a/app/XNAi_rag_app/metrics.py b/app/XNAi_rag_app/metrics.py
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/app/XNAi_rag_app/metrics.py
+@@ -0,0 +1,49 @@
++from prometheus_client import Counter, Gauge, Histogram
++
++# Counters & Gauges
++init_retries_total = Counter("xnai_init_retries_total", "Initialization retries", ["component"])
++ingest_checkpoint_total = Counter("xnai_ingest_checkpoint_total", "Number of ingestion checkpoints", ["service"])
++curator_jobs_running = Gauge("xnai_curator_jobs_running", "Number of curator jobs currently running")
++curator_jobs_total = Counter("xnai_curator_jobs_total", "Total curator jobs", ["status"])
++ingest_last_checkpoint_ts = Gauge("xnai_last_checkpoint_ts", "Last checkpoint unix timestamp", [])
++query_latency_hist = Histogram("xnai_query_latency_seconds", "Query latency seconds", buckets=(0.01,0.05,0.1,0.25,0.5,1,2,5))
++job_duration_seconds = Histogram("xnai_job_duration_seconds", "Duration of background jobs seconds", buckets=(0.1, 0.5, 1, 5, 10, 30, 60))
++cache_hit_ratio = Gauge("xnai_cache_hit_ratio", "Cache hit ratio")
++
+diff --git a/app/XNAi_rag_app/retry_utils.py b/app/XNAi_rag_app/retry_utils.py
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/app/XNAi_rag_app/retry_utils.py
+@@ -0,0 +1,79 @@
++from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
++import logging
++from typing import Type
++from app.XNAi_rag_app.metrics import init_retries_total
++
++logger = logging.getLogger(__name__)
++
++def _before_sleep(retry_state):
++    # called before next retry; increment prometheus counter
++    attempt = retry_state.attempt_number
++    name = getattr(retry_state.fn, "__name__", "unknown")
++    try:
++        init_retries_total.labels(component=name).inc()
++    except Exception:
++        logger.exception("Failed increment init_retries_total")
++    logger.info("Retrying %s (attempt %d)", name, attempt)
++
++def default_retry(*, attempts: int = 5, wait_seconds: float = 0.5, retry_exceptions: tuple[Type[BaseException], ...] = (Exception,)):
++    return retry(
++        reraise=True,
++        stop=stop_after_attempt(attempts),
++        wait=wait_exponential(multiplier=wait_seconds, min=wait_seconds, max=30),
++        retry=retry_if_exception_type(retry_exceptions),
++        before_sleep=lambda rs: _before_sleep(rs)
++    )
++
+diff --git a/tests/test_retry_instrumentation.py b/tests/test_retry_instrumentation.py
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/tests/test_retry_instrumentation.py
+@@ -0,0 +1,30 @@
++from app.XNAi_rag_app.retry_utils import default_retry
++
++@default_retry(attempts=3, wait_seconds=0.001, retry_exceptions=(RuntimeError,))
++def flaky():
++    if not hasattr(flaky, "_n"):
++        flaky._n = 0
++    flaky._n += 1
++    if flaky._n < 2:
++        raise RuntimeError("fail")
++    return "ok"
++
++def test_flaky_retries():
++    val = flaky()
++    assert val == "ok"
++
+diff --git a/app/XNAi_rag_app/subprocess_manager.py b/app/XNAi_rag_app/subprocess_manager.py
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/app/XNAi_rag_app/subprocess_manager.py
+@@ -0,0 +1,207 @@
++from __future__ import annotations
++import os, json, time, logging, threading, signal
++from pathlib import Path
++from subprocess import Popen
++from typing import Dict, Optional
++from app.XNAi_rag_app.metrics import curator_jobs_running, curator_jobs_total, job_duration_seconds
++
++logger = logging.getLogger(__name__)
++PID_DIR = Path(os.environ.get("XNAI_PID_DIR", "/var/run/xnai"))
++PID_DIR.mkdir(parents=True, exist_ok=True)
++
++_active_jobs_lock = threading.Lock()
++_active_jobs: Dict[str, dict] = {}
++
++def _pidfile_for(curation_id: str) -> Path:
++    return PID_DIR / f"curation_{curation_id}.pid"
++
++def launch_job(curation_id: str, cmd: list[str], cwd: Optional[str] = None, env: Optional[dict] = None) -> int:
++    p = Popen(cmd, cwd=cwd, env=env or os.environ.copy(), start_new_session=True)
++    pid = p.pid
++    entry = {"pid": pid, "started_at": time.time(), "cmd": cmd}
++    with _active_jobs_lock:
++        _active_jobs[curation_id] = entry
++    try:
++        _pidfile_for(curation_id).write_text(json.dumps(entry))
++    except Exception:
++        logger.exception("Failed write pidfile")
++    curator_jobs_running.inc()
++    curator_jobs_total.labels(status="started").inc()
++    logger.info("Launched job %s pid=%s", curation_id, pid)
++    return pid
++
++def _is_pid_running(pid: int) -> bool:
++    try:
++        os.kill(pid, 0)
++    except ProcessLookupError:
++        return False
++    except PermissionError:
++        return True
++    return True
++
++def reap_loop(interval: float = 30.0):
++    while True:
++        time.sleep(interval)
++        removals = []
++        with _active_jobs_lock:
++            for cid, info in list(_active_jobs.items()):
++                pid = info.get("pid")
++                if not _is_pid_running(pid):
++                    logger.info("Job finished: %s pid=%s", cid, pid)
++                    removals.append(cid)
++            for cid in removals:
++                _active_jobs.pop(cid, None)
++                try:
++                    p = _pidfile_for(cid)
++                    if p.exists():
++                        p.unlink()
++                except Exception:
++                    logger.exception("Failed remove pidfile")
++                curator_jobs_running.dec()
++                curator_jobs_total.labels(status="finished").inc()
++
++def start_reaper_thread():
++    t = threading.Thread(target=reap_loop, daemon=True, name="xnai-curation-reaper")
++    t.start()
++
++def shutdown_all_jobs():
++    with _active_jobs_lock:
++        for cid, info in list(_active_jobs.items()):
++            pid = info.get("pid")
++            try:
++                os.killpg(pid, signal.SIGTERM)
++                logger.info("SIGTERM to pg %s", pid)
++            except Exception:
++                logger.exception("Failed to terminate pid %s", pid)
++
+diff --git a/tests/test_subprocess_manager.py b/tests/test_subprocess_manager.py
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/tests/test_subprocess_manager.py
+@@ -0,0 +1,57 @@
++import threading
++import time
++from app.XNAi_rag_app.subprocess_manager import launch_job, _pidfile_for, reap_loop
++
++def test_launch_and_reap(tmp_path):
++    # Use a fast reap loop in a background thread
++    t = threading.Thread(target=reap_loop, args=(0.1,), daemon=True)
++    t.start()
++
++    # Launch a very short python sleeper
++    curation_id = "pytest-test"
++    cmd = ["python", "-c", "import time; time.sleep(0.05)"]
++    pid = launch_job(curation_id, cmd)
++    pidfile = _pidfile_for(curation_id)
++    assert pidfile.exists()
++    # wait for process to end and reap loop to remove pidfile
++    time.sleep(1.0)
++    assert not pidfile.exists()
++
+diff --git a/app/XNAi_rag_app/config.py b/app/XNAi_rag_app/config.py
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/app/XNAi_rag_app/config.py
+@@ -0,0 +1,86 @@
++from pydantic import BaseSettings, Field, BaseModel
++
++class IngestionSettings(BaseModel):
++    checkpoint_dir: str = Field("/app/faiss_index")
++    checkpoint_every: int = Field(100, ge=1)
++    resume_on_start: bool = Field(True)
++
++class VectorstoreSettings(BaseModel):
++    allow_dangerous_deserialization: bool = Field(False)
++
++class Settings(BaseSettings):
++    ENV: str = Field("production")
++    ingestion: IngestionSettings = IngestionSettings()
++    vectorstore: VectorstoreSettings = VectorstoreSettings()
++    strict_validation: bool = True
++
++    class Config:
++        env_nested_delimiter = "__"
++        env_file = ".env"
++
++def load_settings(strict: bool = True) -> Settings:
++    s = Settings()
++    if not strict:
++        # in non-strict mode, do not raise validation errors (Pydantic will still validate but this flag can be used at runtime)
++        s.strict_validation = False
++    return s
++
+diff --git a/scripts/validate_config.py b/scripts/validate_config.py
+new file mode 100755
+index 0000000..e69de29
+--- /dev/null
++++ b/scripts/validate_config.py
+@@ -0,0 +1,49 @@
++#!/usr/bin/env python3
++import argparse
++import sys
++from app.XNAi_rag_app.config import load_settings, Settings
++import json
++
++def main():
++    parser = argparse.ArgumentParser(description="Validate XNAi config (Pydantic).")
++    parser.add_argument("--non-strict", action="store_true", help="Run validation in non-strict mode (warn, do not fail).")
++    args = parser.parse_args()
++    try:
++        s = load_settings(strict=not args.non_strict)
++        # Print summary
++        print("Config loaded OK.")
++        print(json.dumps(s.dict(), indent=2))
++        if args.non_strict:
++            print("NOTE: Non-strict mode enabled; certain runtime validations may be skipped.")
++        sys.exit(0)
++    except Exception as e:
++        print("Config validation FAILED:", e, file=sys.stderr)
++        if args.non_strict:
++            print("Continuing due to non-strict mode (warning).", file=sys.stderr)
++            sys.exit(0)
++        sys.exit(2)
++
++if __name__ == "__main__":
++    main()
++
+diff --git a/tests/test_config_cli.py b/tests/test_config_cli.py
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/tests/test_config_cli.py
+@@ -0,0 +1,27 @@
++import subprocess
++import sys
++
++def test_validate_config_strict():
++    res = subprocess.run([sys.executable, "scripts/validate_config.py"], capture_output=True, text=True)
++    assert res.returncode == 0
++
++def test_validate_config_non_strict():
++    res = subprocess.run([sys.executable, "scripts/validate_config.py", "--non-strict"], capture_output=True, text=True)
++    assert res.returncode == 0
++
+diff --git a/docs/GROUP_SESSIONS_LOG.md b/docs/GROUP_SESSIONS_LOG.md
+new file mode 100644
+index 0000000..e69de29
+--- /dev/null
++++ b/docs/GROUP_SESSIONS_LOG.md
+@@ -0,0 +1,92 @@
++# Xoe-NovAi Guide Batch Writer — Session Log
++
++## Purpose
++This file tracks the progress, findings, and corrections across all Group guide-writing sessions. It serves as the "tribal knowledge" bridge, ensuring continuity and preventing regression of prior work.
++
++## Session Index
++
++### Group 1 — Foundation & Architecture [2025-10-20]
++- **Artifacts**: xnai-group1-artifact1-foundation.md (Sections 0-1, 4 patterns)
++- **Patches verified**: N/A (Group 1, baseline)
++- **Prior corrections**: N/A
++- **Issues filed**:
++  - "Verify FAISS index path consistency across Dockerfiles"
++- **Blockers**: None
++- **Next group note**: Group 2 to verify 197 env vars and implement validate_config(strict=False)
++
++### Group 2 — Prerequisites & Configuration [2025-10-21]
++- **Artifacts**: xnai-group2-artifact1-prereqs.md, xnai-group2-artifact2-config.md (Sections 2, 4, 5; 197 vars, 23 config.toml sections)
++- **Patches verified**: N/A (Group 2, pre-ChatGPT review)
++- **Prior corrections applied**:
++  - ✅ FAISS path checked: consistent in all files
++- **Issues filed**:
++  - "Add --non-strict flag to validate_config.py"
++  - "Vectorstore: add allow_dangerous_deserialization = false default"
++- **Blockers**: None
++- **Next group note**: Group 3 to verify lazy config() patches and health checks
++
++### Group 3 — Docker & Health Checks [2025-10-22]
++- **Artifacts**: xnai-group3-artifact4-docker.md, xnai-group3-artifact5-health.md (Sections 6, 7, 13.1-13.3; 7 health targets, multi-stage builds)
++- **Patches verified**:
++  - ⚠️ Lazy `get_config()` patches NOT YET APPLIED to Dockerfile.api (ChatGPT patch pending)
++  - ⚠️ WARNING log for dangerous deserialization NOT IMPLEMENTED
++- **Prior corrections applied**:
++  - ✅ FAISS path confirmed consistent
++  - ⚠️ validate_config(strict=False) — patch exists but not applied
++- **Issues filed**:
++  - "Apply lazy config() patches to all Dockerfiles"
++  - "Add WARNING log when FAISS de

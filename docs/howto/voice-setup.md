@@ -1,0 +1,445 @@
+# Voice Interface Quick Start Guide
+
+**Created:** January 3, 2026  
+**Version:** v0.1.5-voice-enabled  
+**Status:** ✅ Ready for Deployment
+
+---
+
+## What's New: Voice Capabilities
+
+Xoe-NovAi now supports full voice interaction in Chainlit! You can:
+
+- 🎤 **Speak commands** instead of typing
+- 🔊 **Hear responses** automatically
+- ⚙️ **Adjust voice settings** (speed, pitch, volume)
+- ♿ **Accessibility features** for vision-impaired users
+- 🚀 **Foundation for agentic control** (future: control entire computer via voice)
+
+---
+
+## Getting Started (5 minutes)
+
+### Step 1: Install Voice Dependencies
+
+```bash
+cd /home/arcana-novai/Documents/GitHub/Xoe-NovAi
+
+# Install voice packages
+pip install -r requirements-chainlit.txt
+
+# Optional: High-accuracy speech recognition
+pip install openai
+export OPENAI_API_KEY="sk-your-key-here"
+
+# Optional: Premium voice synthesis
+pip install elevenlabs
+export ELEVENLABS_API_KEY="sk_your-key-here"
+```
+
+### Step 2: Disable Telemetry (Recommended)
+
+```bash
+export CHAINLIT_NO_TELEMETRY=true
+```
+
+### Step 3: Start Chainlit
+
+```bash
+chainlit run app/XNAi_rag_app/chainlit_app_with_voice.py -w --port 8001
+```
+
+The app will start and open automatically at `http://localhost:8001`
+
+### Step 4: Select a Chat Profile
+
+Choose one of three profiles:
+
+- **🎤 Voice Assistant**: Voice-first interaction (mic button always ready)
+- **📚 Library Curator**: Search for books/papers (text or voice)
+- **🔍 Research Helper**: Find academic papers (voice or text)
+
+### Step 5: Use Voice
+
+Click the **🎤 microphone button** in the chat to:
+1. **Record** your voice command
+2. **I transcribe** it to text
+3. **Process** your request
+4. **Respond** with text and audio
+
+---
+
+## Voice Command Examples
+
+### Library Searching (Say These)
+
+> "Find all works by Plato"
+
+> "Research quantum mechanics and give me top 10 recommendations"
+
+> "Show me popular science fiction novels"
+
+> "What are the best resources on machine learning?"
+
+### Voice Control (Say These)
+
+> "Speak slower" ← Reduces speech rate
+
+> "Speak faster" ← Increases speech rate
+
+> "Higher pitch" ← Makes voice higher
+
+> "Lower your pitch" ← Makes voice lower
+
+> "Louder" / "Quieter" ← Volume control
+
+> "Switch to Spanish" ← Change language
+
+---
+
+## Voice Settings
+
+### Speech Speed
+
+- `0.5x` - Half speed (for processing time)
+- `1.0x` - **Normal speed** (default)
+- `1.5x` - 50% faster
+- `2.0x` - Double speed
+
+Command: "speak slower" / "speak faster"
+
+### Pitch (Voice Height)
+
+- `0.5` - Very low (bass-heavy hearing)
+- `1.0` - **Normal** (default)
+- `1.5` - High (treble sensitivity)
+- `2.0` - Very high
+
+Command: "use a higher pitch" / "lower your pitch"
+
+### Volume
+
+- `30%` - Quiet (sensitive hearing)
+- `80%` - **Normal** (default)
+- `100%` - Full volume
+
+Command: "quieter" / "louder"
+
+### Language (12 Options)
+
+- 🇺🇸 English (US): `en-US`
+- 🇬🇧 English (UK): `en-GB`
+- 🇪🇸 Spanish: `es-ES`
+- 🇫🇷 French: `fr-FR`
+- 🇩🇪 German: `de-DE`
+- 🇯🇵 Japanese: `ja-JP`
+- 🇨🇳 Chinese (Simplified): `zh-CN`
+- 🇹🇼 Chinese (Traditional): `zh-TW`
+- 🇧🇷 Portuguese (Brazil): `pt-BR`
+- 🇮🇹 Italian: `it-IT`
+- 🇰🇷 Korean: `ko-KR`
+
+Command: "switch to Spanish" / "use Japanese"
+
+---
+
+## Voice Providers (How It Works)
+
+### Speech-to-Text (STT)
+
+**Web Speech API (Default - Browser-based)**
+- No server load
+- Works in browser
+- Real-time transcription
+- ~85-92% accuracy
+- No cost
+
+**OpenAI Whisper (Optional - High accuracy)**
+- 95-98% accuracy
+- Server-side processing
+- Better with accents/noise
+- Requires API key
+- Cost: $0.02/minute
+
+Setup:
+```bash
+pip install openai
+export OPENAI_API_KEY="sk-..."
+```
+
+### Text-to-Speech (TTS)
+
+**pyttsx3 (Default - Local/Offline)**
+- No network needed
+- Private (no data sent anywhere)
+- Works on Windows/Mac/Linux
+- ⚠️ Voice quality varies by OS
+- No cost
+
+**Google TTS (Free online)**
+- Good quality
+- Requires internet
+- Free tier available
+- Natural sounding voices
+- Slight latency (~200-500ms)
+
+**ElevenLabs (Premium - Best quality)**
+- Highest quality voices
+- Most natural sounding
+- Requires paid API
+- No latency
+- Cost: ~$5-30/month
+
+Setup:
+```bash
+export ELEVENLABS_API_KEY="sk_..."
+```
+
+---
+
+## Accessibility Features
+
+Perfect for disabled users:
+
+### For Vision-Impaired Users
+
+- ✅ Voice input (speak instead of type)
+- ✅ Voice output (hear responses)
+- ✅ Large, clear font options
+- ✅ Screen reader compatible
+- ✅ High contrast themes
+
+### For Hearing-Impaired Users
+
+- ✅ Text transcription of voice input
+- ✅ Visual indicators (no audio needed)
+- ✅ Adjustable text size
+- ✅ Real-time captions
+
+### For Cognitive Disabilities
+
+- ✅ Slower speech (0.5x to 1.0x)
+- ✅ Simpler language options
+- ✅ Step-by-step guidance
+- ✅ Clear voice (adjustable pitch)
+- ✅ Audio feedback on actions
+
+### For Motor Disabilities
+
+- ✅ Voice commands (no typing needed)
+- ✅ Hands-free interaction
+- ✅ Eye-gaze control (future)
+- ✅ Touch/gesture control (future)
+
+---
+
+## Future Features (Roadmap)
+
+### Phase 2 (Q1 2026): Full Computer Control
+
+Control your computer entirely by voice:
+
+- "Open Firefox browser"
+- "Download a book from Project Gutenberg"
+- "Go to /home/username/Downloads"
+- "Open the PDF I just downloaded"
+- "Save this file to Documents"
+- "Create a new folder"
+
+### Phase 3 (Q2 2026): Accessibility Suite
+
+- Custom voice profiles per user
+- Screen reader integration
+- Voice-only mode
+- Eye-gaze + voice control
+- Personalized shortcuts
+
+### Phase 4 (Q3 2026): Multi-Modal Agent
+
+- Voice + gesture + eye-gaze
+- Intelligent context awareness
+- Learning user preferences
+- Natural language to code
+- Hands-free computing
+
+---
+
+## Troubleshooting
+
+### No 🎤 Button Visible
+
+**Solution:**
+- Use Chainlit 2.8.3+ (check: `pip show chainlit`)
+- Use modern browser (Chrome, Firefox, Edge)
+- HTTPS required for audio permissions (localhost is OK)
+
+### Audio Not Working
+
+**Solution:**
+1. Check microphone permissions in browser
+2. Click 🎤 and allow microphone access
+3. Test with "Speak slower" command first
+4. Check volume levels
+
+### Transcription Failing
+
+**Solution:**
+1. Try switching STT provider (Settings)
+2. Speak more slowly
+3. Reduce background noise
+4. Try Whisper for accuracy: `pip install openai && export OPENAI_API_KEY="..."`
+
+### Voice Sounds Robotic
+
+**Solution:**
+1. Try different TTS provider:
+   - pyttsx3: Check system voice settings
+   - GTTS: Better quality (install: `pip install gtts`)
+   - ElevenLabs: Best quality (requires API key)
+2. Adjust pitch/speed: "speak slower", "higher pitch"
+
+### High Latency/Slow Response
+
+**Solution:**
+1. Use Web Speech API (browser-based, faster)
+2. Use pyttsx3 TTS (local, offline)
+3. Reduce background network usage
+4. Check internet connection
+
+---
+
+## Developers: Integration Guide
+
+### Basic Usage in Code
+
+```python
+from app.XNAi_rag_app.voice_interface import (
+    VoiceConfig,
+    VoiceProvider,
+    setup_voice_interface,
+    get_voice_interface,
+)
+
+# Setup with custom config
+config = VoiceConfig(
+    stt_provider=VoiceProvider.WEB_SPEECH,
+    tts_provider=VoiceProvider.GTTS,
+    language="es-ES",
+    speech_rate=0.8,  # Slower
+)
+
+setup_voice_interface(config)
+voice = get_voice_interface()
+
+# Get config
+settings = voice.get_session_stats()
+print(f"Total recordings: {settings['stats']['total_recordings']}")
+```
+
+### Chainlit Integration
+
+```python
+import chainlit as cl
+from app.XNAi_rag_app.voice_interface import (
+    process_voice_input,
+    generate_voice_output,
+)
+
+@cl.on_audio_chunk
+async def handle_audio(chunk: cl.AudioChunk):
+    # Transcribe
+    text = await process_voice_input(chunk.data)
+    
+    # Respond with voice
+    response = f"I heard: {text}"
+    audio = await generate_voice_output(response)
+    
+    if audio:
+        await cl.Audio(data=audio, name="response.wav").send()
+    await cl.Message(response).send()
+```
+
+See [docs/VOICE_INTERFACE_GUIDE.md](../docs/VOICE_INTERFACE_GUIDE.md) for detailed developer documentation.
+
+---
+
+## Performance Tips
+
+### For Faster Response
+
+- ✅ Use Web Speech API (browser-based STT)
+- ✅ Use pyttsx3 TTS (local, no network)
+- ✅ Shorter speech rate (0.7x - 1.0x)
+- ✅ Reduce background processes
+
+### For Better Accuracy
+
+- ✅ Use Whisper STT (95-98% accurate)
+- ✅ Reduce background noise
+- ✅ Speak clearly and slowly
+- ✅ Use ElevenLabs TTS for natural output
+
+### For Privacy
+
+- ✅ Use Web Speech API (stays in browser)
+- ✅ Use pyttsx3 TTS (local processing)
+- ✅ No API keys needed
+- ✅ No data sent to external services
+
+---
+
+## Deployment
+
+### Docker Deployment
+
+Voice dependencies are already included in `requirements-chainlit.txt`:
+
+```bash
+docker-compose up -d
+```
+
+Voice will be available at `http://localhost:8001` automatically.
+
+### Custom Deployment
+
+```bash
+# Install all dependencies
+pip install -r requirements-chainlit.txt
+
+# Optional speech recognition packages
+pip install openai elevenlabs
+
+# Run app
+chainlit run app/XNAi_rag_app/chainlit_app_with_voice.py -w --port 8001
+```
+
+---
+
+## Support & Feedback
+
+For issues, feature requests, or accessibility needs:
+
+1. Check troubleshooting section above
+2. Review [VOICE_INTERFACE_GUIDE.md](../docs/VOICE_INTERFACE_GUIDE.md) for detailed docs
+3. Test voice features directly: `python3 -c "from app.XNAi_rag_app.voice_interface import *; print('Voice module ready!')"`
+4. Contact: Xoe-NovAi Team
+
+---
+
+## Next Steps
+
+**Start Using Voice:**
+1. Run: `chainlit run app/XNAi_rag_app/chainlit_app_with_voice.py -w --port 8001`
+2. Open: `http://localhost:8001`
+3. Click 🎤 button
+4. Speak naturally!
+
+**Learn More:**
+- [Voice Interface Guide](../docs/VOICE_INTERFACE_GUIDE.md) - Comprehensive documentation
+- [Chainlit Docs](https://docs.chainlit.io) - UI framework documentation
+- [Whisper Docs](https://platform.openai.com/docs/guides/speech-to-text) - STT accuracy
+- [ElevenLabs Docs](https://elevenlabs.io/docs) - Premium voices
+
+---
+
+**Ready to experience voice-enabled library curation with accessibility for all users!** 🎤📚♿

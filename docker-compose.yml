@@ -19,21 +19,22 @@ services:
     container_name: xnai_redis
     command: >
       redis-server
-      --requirepass ${REDIS_PASSWORD}
+      --requirepass "${REDIS_PASSWORD:?REDIS_PASSWORD must be set}"
       --appendonly yes
       --appendfsync everysec
       --maxmemory 512mb
       --maxmemory-policy allkeys-lru
       --tcp-backlog 2048
-      --protected-mode no
+      --protected-mode yes
+      --bind 0.0.0.0
       --dir /data
     volumes:
       - ./data/redis:/data
     environment:
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PASSWORD
       - REDIS_STREAM_MAX_LEN=${REDIS_STREAM_MAX_LEN:-1000}
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$REDIS_PASSWORD\" ping || exit 1"]
       interval: 30s
       timeout: 15s
       retries: 5
@@ -57,6 +58,9 @@ services:
         BUILDKIT_INLINE_CACHE: 1
     container_name: xnai_rag_api
     volumes:
+      # Configuration
+      - ./config.toml:/config.toml:ro
+      
       # Models (always bind mounts - large files)
       - ./models:/models:ro
       - ./embeddings:/embeddings:ro
@@ -83,7 +87,7 @@ services:
       
     environment:
       - RAG_API_URL=http://rag:8000
-      - LLM_MODEL_PATH=/models/gemma-3-4b-it-UD-Q5_K_XL.gguf
+      - LLM_MODEL_PATH=/models/local/all/gemma-3-4b-it-UD-Q5_K_XL.gguf
       - EMBEDDING_MODEL_PATH=/embeddings/all-MiniLM-L12-v2.Q8_0.gguf
       - RAG_PER_DOC_CHARS=${RAG_PER_DOC_CHARS:-500}
       - RAG_TOTAL_CHARS=${RAG_TOTAL_CHARS:-2048}
@@ -132,6 +136,9 @@ services:
         BUILDKIT_INLINE_CACHE: 1
     container_name: xnai_chainlit_ui
     volumes:
+      # Configuration
+      - ./config.toml:/config.toml:ro
+      
       # Development: Live code reload (comment for production)
       - ./app/XNAi_rag_app:/app/XNAi_rag_app
     environment:
@@ -176,6 +183,9 @@ services:
         BUILDKIT_INLINE_CACHE: 1
     container_name: xnai_crawler
     volumes:
+      # Configuration
+      - ./config.toml:/config.toml:ro
+      
       # IMPORTANT: Ensure directories exist with correct permissions:
       # sudo mkdir -p library knowledge data/cache
       # sudo chown -R 1001:1001 library knowledge data/cache

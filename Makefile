@@ -99,7 +99,10 @@ build: wheelhouse ## Build Docker images with enhanced logging and dependency ma
 
 up: ## Start stack
 	@echo "Starting stack..."
-	cat redis_password.txt | docker secret create redis_password -
+	@if [ ! -f .env ]; then \
+		echo "$(YELLOW)Warning: .env file not found. Creating from .env.example...$(NC)"; \
+		cp .env.example .env 2>/dev/null || echo "$(RED)Error: .env.example not found$(NC)"; \
+	fi
 	$(COMPOSE) up -d
 
 down: ## Stop stack

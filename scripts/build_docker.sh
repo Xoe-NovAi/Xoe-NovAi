@@ -14,8 +14,32 @@ exec 2> >(tee -a "${LOGFILE}" >&2)
 
 # Load .env for OFFLINE_BUILD (fixed grep for indented comments)
 if [ -f .env ]; then
-    # Filter lines with leading whitespace + # (comments)
-    export $(grep -v '^[[:space:]]*#' .env | xargs -d '\n')
+    # Filter out comments and empty lines, then export variables
+    # Remove inline comments (everything after #) and trim whitespace
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Skip empty lines and lines starting with #
+        [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+        # Remove inline comments and trim
+        line="${line%%#*}"  # Remove everything after first #
+        line="${line%"${line##*[![:space:]]}"}"  # Trim trailing whitespace
+        [[ -z "$line" ]] && continue
+        # Export the variable (handle KEY=VALUE format)
+        if [[ "$line" =~ ^[[:space:]]*([^=]+)=(.*)$ ]]; then
+            key="${BASH_REMATCH[1]// /}"
+            value="${BASH_REMATCH[2]}"
+            # Remove quotes if present
+            value="${value#\"}"
+            value="${value%\"}"
+            value="${value#\'}"
+            value="${value%\'}"
+            # Skip system readonly variables that shouldn't be overridden
+            if [[ "$key" != "UID" && "$key" != "GID" && "$key" != "EUID" && "$key" != "PPID" ]]; then
+                export "$key=$value"
+            else
+                echo "Skipping system variable: $key"
+            fi
+        fi
+    done < .env
 fi
 
 # Set OFFLINE arg if enabled
@@ -72,8 +96,22 @@ build_service() {
     cp -r requirements-*.txt "$ctx/"
     if [ -f wheelhouse.tgz ]; then
         cp wheelhouse.tgz "$ctx/"
-    else
-        cp -r wheelhouse "$ctx/"
+    fi
+    if [ -d wheelhouse ]; then
+        echo "Copying wheelhouse directory to build context..."
+        cp -r wheelhouse "$ctx/" || echo "Warning: Failed to copy wheelhouse directory"
+        # Verify crawl4ai is in the copied wheelhouse
+        if ls "$ctx/wheelhouse/crawl4ai"*.whl >/dev/null 2>&1; then
+            echo "✓ crawl4ai wheel found in build context"
+        else
+            echo "⚠ Warning: crawl4ai wheel not found in build context"
+            ls -la "$ctx/wheelhouse/" | grep -i crawl | head -3 || echo "No crawl files found"
+        fi
+        echo "Wheelhouse copied: $(ls "$ctx/wheelhouse"/*.whl 2>/dev/null | wc -l) wheels"
+    fi
+    if [ ! -d "$ctx/wheelhouse" ] && [ ! -f "$ctx/wheelhouse.tgz" ]; then
+        echo "Error: Neither wheelhouse directory nor wheelhouse.tgz found"
+        exit 1
     fi
     cp "$dockerfile" "$ctx/Dockerfile"
     

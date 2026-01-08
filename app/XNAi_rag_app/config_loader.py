@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 - Centralized Configuration Loader
+# Xoe-NovAi Phase 1 v0.1.4-stable - Centralized Configuration Loader
 # ============================================================================
 # Purpose: Shared configuration management to eliminate duplication
 # Guide Reference: Section 3.2 (config_loader.py)
@@ -23,7 +23,130 @@ from typing import Dict, Any, Optional
 from functools import lru_cache
 from pathlib import Path
 
+# Pydantic for schema validation (NEW v0.1.4)
+from pydantic import BaseModel, Field, validator
+
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# PYDANTIC CONFIGURATION SCHEMA (NEW v0.1.4)
+# ============================================================================
+
+class MetadataConfig(BaseModel):
+    """Metadata section schema."""
+    stack_version: str
+    release_date: str
+    codename: str
+    description: Optional[str] = None
+    architecture: Optional[str] = None
+    
+    class Config:
+        extra = "allow"  # Allow additional fields
+
+
+class ProjectConfig(BaseModel):
+    """Project section schema."""
+    name: str
+    phase: int
+    telemetry_enabled: bool = False  # CRITICAL: Must be False
+    privacy_mode: str = "local-only"
+    data_sovereignty: bool = True
+    multi_agent_coordination: bool = False
+    
+    class Config:
+        extra = "allow"
+
+
+class ModelsConfig(BaseModel):
+    """Models section schema."""
+    llm_path: str
+    llm_size_gb: float
+    llm_quantization: str
+    llm_context_window: int = 2048
+    embedding_path: str
+    embedding_size_mb: float
+    embedding_dimensions: int = 384
+    embedding_model_name: Optional[str] = None
+    embedding_device: str = "cpu"
+    
+    class Config:
+        extra = "allow"
+
+
+class PerformanceConfig(BaseModel):
+    """Performance section schema."""
+    token_rate_min: int
+    token_rate_target: int
+    token_rate_max: int
+    memory_limit_bytes: int
+    memory_warning_threshold_bytes: int
+    memory_critical_threshold_bytes: int
+    memory_limit_gb: float = Field(..., ge=4.0, le=32.0)  # Must be 4-32GB
+    memory_warning_threshold_gb: float
+    memory_critical_threshold_gb: float
+    latency_target_ms: int
+    latency_warning_ms: int
+    cpu_threads: int = 6
+    cpu_architecture: Optional[str] = None
+    f16_kv_enabled: bool = True  # CRITICAL: Must be True for Ryzen optimization
+    per_doc_chars: int = 500
+    total_chars: int = 2048
+    
+    class Config:
+        extra = "allow"
+    
+    @validator('memory_limit_gb')
+    def validate_memory(cls, v):
+        """Ensure memory limit is reasonable."""
+        if v < 5.0:
+            raise ValueError('memory_limit_gb must be >= 5.0')
+        return v
+
+
+class ServerConfig(BaseModel):
+    """Server section schema."""
+    host: str = "0.0.0.0"
+    port: int = Field(8000, ge=1024, le=65535)
+    workers: int = Field(1, ge=1, le=16)
+    timeout_seconds: int = 30
+    cors_origins: list = []
+    
+    class Config:
+        extra = "allow"
+
+
+class RedisConfig(BaseModel):
+    """Redis section schema."""
+    version: Optional[str] = None
+    host: str = "redis"
+    port: int = Field(6379, ge=1024, le=65535)
+    password: Optional[str] = None
+    timeout_seconds: int = 60
+    max_connections: int = Field(50, ge=1, le=500)
+    
+    class Config:
+        extra = "allow"
+
+
+class XnaiConfig(BaseModel):
+    """Complete Xoe-NovAi configuration schema."""
+    metadata: MetadataConfig
+    project: ProjectConfig
+    models: ModelsConfig
+    performance: PerformanceConfig
+    server: ServerConfig
+    redis: RedisConfig
+    
+    class Config:
+        extra = "allow"  # Allow additional sections not in schema
+    
+    @validator('project', pre=False)
+    def validate_telemetry(cls, v):
+        """Ensure telemetry is disabled."""
+        if v.telemetry_enabled:
+            raise ValueError('project.telemetry_enabled must be False (privacy-first requirement)')
+        return v
+
 
 # ============================================================================
 # HELPER: DETERMINE DEFAULT CONFIG PATH CANDIDATES
@@ -96,7 +219,7 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
     Example:
         >>> config = load_config()
         >>> print(config['metadata']['stack_version'])
-        v0.1.2
+        v0.1.4-stable
     """
     # Resolve candidate paths
     if config_path:
@@ -151,6 +274,14 @@ def load_config(config_path: Optional[str] = None) -> Dict[str, Any]:
             f"Configuration missing required sections: {missing_sections} "
             f"(loaded from {config_file})"
         )
+    
+    # Pydantic validation (NEW v0.1.4) - Blueprint compliant config schema
+    try:
+        validated_config = XnaiConfig(**config)
+        logger.info(f"Configuration validated against Pydantic schema (v0.1.4-compliant)")
+    except Exception as e:
+        logger.error(f"Configuration schema validation failed: {e}")
+        raise ValueError(f"Configuration validation error: {e}") from e
     
     logger.info(f"Configuration loaded from {config_file} ({len(config)} sections)")
     return config
@@ -230,14 +361,14 @@ def validate_config() -> bool:
     
     # Version check (warn, don't fail)
     version = config.get("metadata", {}).get("stack_version", "unknown")
-    if version not in ["v0.1.1_rev_1.4", "v0.1.2"]:
-        logger.warning(f"Unexpected stack_version: {version} (expected v0.1.2)")
+    if version not in ["v0.1.1_rev_1.4", "v0.1.2", "v0.1.4-stable"]:
+        logger.warning(f"Unexpected stack_version: {version} (expected v0.1.4-stable)")
     checks.append(f"version={version}")
     
     # Memory limit check (critical)
     memory_limit = config["performance"].get("memory_limit_gb")
-    if memory_limit != 6.0:
-        raise ValueError(f"performance.memory_limit_gb={memory_limit} (expected 6.0)")
+    if memory_limit not in [5.0, 6.0]:  # Support both 5.0 and 6.0 GB configurations
+        raise ValueError(f"performance.memory_limit_gb={memory_limit} (expected 5.0 or 6.0)")
     checks.append(f"memory_limit={memory_limit}GB")
     
     # CPU threads check
@@ -287,7 +418,7 @@ def get_config_summary() -> Dict[str, Any]:
     Example:
         >>> summary = get_config_summary()
         >>> print(summary['version'])
-        v0.1.2
+        v0.1.4-stable
     """
     config = load_config()
     
@@ -501,7 +632,7 @@ if __name__ == "__main__":
         
         # Memory limit
         memory_limit = get_config_value("performance.memory_limit_gb")
-        assert memory_limit == 6.0, f"memory_limit={memory_limit} (expected: 6.0)"
+        assert memory_limit in [5.0, 6.0], f"memory_limit={memory_limit} (expected: 5.0 or 6.0)"
         checks.append(f"memory={memory_limit}GB")
         
         # f16_kv

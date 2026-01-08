@@ -28,6 +28,10 @@ from pathlib import Path
 from datetime import datetime
 from typing import List, Dict, Optional
 
+# CRITICAL FIX: Import path resolution (Pattern 1)
+# Add parent directory to path for imports from app/XNAi_rag_app
+sys.path.insert(0, str(Path(__file__).parent.parent / "app" / "XNAi_rag_app"))
+
 # Resilience
 try:
     from tenacity import retry, stop_after_attempt, wait_exponential

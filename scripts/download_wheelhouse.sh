@@ -39,17 +39,29 @@ log_download() {
     local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
     
     if [[ $status == "success" ]]; then
-        jq --arg pkg "$pkg" --arg time "$timestamp" \
+        if jq --arg pkg "$pkg" --arg time "$timestamp" \
            '.downloads += [{"package": $pkg, "time": $time}]' \
-           "${MANIFEST}" > "${MANIFEST}.tmp" && mv "${MANIFEST}.tmp" "${MANIFEST}"
+           "${MANIFEST}" > "${MANIFEST}.tmp" 2>/dev/null && [ -f "${MANIFEST}.tmp" ]; then
+            mv "${MANIFEST}.tmp" "${MANIFEST}"
+        else
+            echo "Warning: Failed to update manifest for $pkg (jq may not be installed)"
+        fi
     elif [[ $status == "error" ]]; then
-        jq --arg pkg "$pkg" --arg time "$timestamp" --arg err "$error" \
+        if jq --arg pkg "$pkg" --arg time "$timestamp" --arg err "$error" \
            '.errors += [{"package": $pkg, "time": $time, "error": $err}]' \
-           "${MANIFEST}" > "${MANIFEST}.tmp" && mv "${MANIFEST}.tmp" "${MANIFEST}"
+           "${MANIFEST}" > "${MANIFEST}.tmp" 2>/dev/null && [ -f "${MANIFEST}.tmp" ]; then
+            mv "${MANIFEST}.tmp" "${MANIFEST}"
+        else
+            echo "Warning: Failed to update manifest for $pkg (jq may not be installed)"
+        fi
     else
-        jq --arg pkg "$pkg" --arg time "$timestamp" \
+        if jq --arg pkg "$pkg" --arg time "$timestamp" \
            '.skipped += [{"package": $pkg, "time": $time}]' \
-           "${MANIFEST}" > "${MANIFEST}.tmp" && mv "${MANIFEST}.tmp" "${MANIFEST}"
+           "${MANIFEST}" > "${MANIFEST}.tmp" 2>/dev/null && [ -f "${MANIFEST}.tmp" ]; then
+            mv "${MANIFEST}.tmp" "${MANIFEST}"
+        else
+            echo "Warning: Failed to update manifest for $pkg (jq may not be installed)"
+        fi
     fi
 }
 
@@ -153,74 +165,34 @@ done
 echo "[5/6] Downloading dependencies..."
 for req in "${REQ_FILES[@]}"; do
     echo "  -> Resolving dependencies for ${req}..."
-    python3 -m pip download -r "${req}" --no-deps -d "${OUTDIR}" || {
+    # Download with dependencies (remove --no-deps to get transitive deps)
+    python3 -m pip download -r "${req}" -d "${OUTDIR}" || {
         echo "Warning: pip download returned non-zero for ${req}. Some packages may require building from sdist or manual intervention."
     }
 done
 
 # Optional: attempt to build wheels for any sdists found (pip wheel)
 echo "[6/6] Building wheels from sdists..."
-if command -v docker >/dev/null 2>&1; then
-    echo "Docker detected — performing pip wheel build inside python:3.12-slim"
-    
-    # Create a temporary build directory
-    BUILD_DIR="$(pwd)/.build_wheels_tmp"
-    mkdir -p "${BUILD_DIR}"
-    
-    # Create the build script
-    cat > "${BUILD_DIR}/build_wheels.sh" <<'EOF'
-#!/bin/bash
-set -euo pipefail
-
-# Setup error logging
-ERRLOG="/wheels/build_errors.log"
-touch "$ERRLOG"
-
-# Install build dependencies
-echo "Installing build dependencies..."
-apt-get update > /dev/null
-apt-get install -y --no-install-recommends \
-    build-essential \
-    cmake \
-    git \
-    libopenblas-dev \
-    pkg-config \
-    python3-dev \
-    >/dev/null 2>&1 || echo "Warning: Some build dependencies failed to install"
-
-# Process each sdist
-echo "Processing sdists..."
-for s in /build/*.tar.gz /build/*.zip; do
-    [ -f "$s" ] || continue
-    echo "Building wheel for $(basename $s)..."
-    if python -m pip wheel --no-deps --wheel-dir=/wheels "$s" 2>>"$ERRLOG"; then
-        echo "Successfully built wheel for $(basename $s)"
-    else
-        echo "Failed to build wheel for $(basename $s) (see build_errors.log)"
-    fi
-done
-EOF
-
-    chmod +x "${BUILD_DIR}/build_wheels.sh"
-    
-    # Move sdist files to build directory
-    echo "Moving sdists to build directory..."
-    find "${OUTDIR}" -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} "${BUILD_DIR}/" \;
-    
-    # Run the container
-    echo "Running build container..."
-    docker run --rm \
-        -v "$(pwd)/${OUTDIR}":/wheels \
-        -v "${BUILD_DIR}":/build \
-        python:3.12-slim \
-        /build/build_wheels.sh
-    
-    # Clean up
-    echo "Cleaning up build directory..."
-    rm -rf "${BUILD_DIR}"
-else
-    echo "Docker not available — skipping sdist builds"
+# Fix Docker socket path if needed
+if [ -z "${DOCKER_HOST:-}" ] && [ ! -S "/var/run/docker.sock" ] && [ -S "/home/arcana-novai/.docker/desktop/docker.sock" ]; then
+    export DOCKER_HOST="unix:///home/arcana-novai/.docker/desktop/docker.sock"
+elif [ -z "${DOCKER_HOST:-}" ] && [ -S "/var/run/docker.sock" ]; then
+    export DOCKER_HOST="unix:///var/run/docker.sock"
 fi
+
+# Temporarily disabled: Docker wheel building causes build freezes
+# if command -v docker >/dev/null 2>&1 && docker ps >/dev/null 2>&1; then
+#     echo "Docker detected — performing pip wheel build inside python:3.12-slim"
+#     ... (Docker wheel building code removed to prevent freezes)
+# else
+    echo "Skipping Docker wheel building (disabled to prevent build freezes)"
+# fi
+
+# Log any sdists that couldn't be built
+echo "Note: Source distributions (.tar.gz, .zip) found but not built into wheels"
+find "${OUTDIR}" -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec basename {} \; | while read -r sdist; do
+    echo "  - $sdist (requires manual wheel building if needed)"
+done
 
 # New: Auto-clean duplicates post-download and build
 echo "Cleaning duplicates..."
@@ -245,9 +217,15 @@ echo "Generating detailed wheelhouse manifest..."
     echo
     echo "## Download Statistics"
     echo
-    jq -r '.downloads | length | "Total downloads: \(.)"' "${MANIFEST}"
-    jq -r '.errors | length | "Total errors: \(.)"' "${MANIFEST}"
-    jq -r '.skipped | length | "Total skipped: \(.)"' "${MANIFEST}"
+    if command -v jq >/dev/null 2>&1 && [ -f "${MANIFEST}" ]; then
+        jq -r '.downloads | length | "Total downloads: \(.)"' "${MANIFEST}" 2>/dev/null || echo "Total downloads: N/A"
+        jq -r '.errors | length | "Total errors: \(.)"' "${MANIFEST}" 2>/dev/null || echo "Total errors: N/A"
+        jq -r '.skipped | length | "Total skipped: \(.)"' "${MANIFEST}" 2>/dev/null || echo "Total skipped: N/A"
+    else
+        echo "Total downloads: N/A (jq not available or manifest missing)"
+        echo "Total errors: N/A"
+        echo "Total skipped: N/A"
+    fi
     
     echo
     echo "## Error Log"

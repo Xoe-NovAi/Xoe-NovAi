@@ -45,6 +45,9 @@ embeddings/
 Dockerfile*
 .dockerignore
 docker-compose.override.yml
+build_context_api/
+build_context_chainlit/
+build_context_crawl/
 
 # IDE
 .vscode/

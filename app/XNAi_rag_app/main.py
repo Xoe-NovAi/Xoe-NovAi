@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 - FastAPI RAG Service (PRODUCTION-READY)
+# Xoe-NovAi Phase 1 v0.1.4-stable - FastAPI RAG Service (PRODUCTION-READY)
 # ============================================================================
 # Purpose: Main FastAPI application with streaming RAG capabilities
 # Guide Reference: Section 4.1 (Complete main.py Implementation)
-# Last Updated: 2025-10-18
+# Last Updated: 2025-11-08
+# NEW v0.1.4: Added Pattern 5 - Circuit Breaker for LLM resilience
 # CRITICAL FIX: Added import path resolution (lines 31-33)
 # Features:
 #   - SSE streaming for real-time responses
@@ -39,6 +40,9 @@ from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
+
+# Circuit breaker (Pattern 5) - Blueprint compliant
+from pybreaker import CircuitBreaker, CircuitBreakerError
 
 # System monitoring
 import psutil
@@ -284,6 +288,49 @@ Answer:"""
     return prompt
 
 # ============================================================================
+# PATTERN 5: CIRCUIT BREAKER (Standardized with pybreaker)
+# ============================================================================
+
+# Initialize circuit breaker with Blueprint-compliant parameters
+# fail_max=3: Trip after 3 failures
+# reset_timeout=60: Recover after 60 seconds
+llm_circuit_breaker = CircuitBreaker(
+    fail_max=3,
+    reset_timeout=60,
+    exclude=[],  # Don't catch any specific exceptions; let all through
+    name="llm-load"
+)
+
+def load_llm_with_circuit_breaker():
+    """
+    Load LLM with circuit breaker protection (Pattern 5).
+    
+    Guide Reference: Section 1.5 (Pattern 5 - Circuit Breaker - Standardized with pybreaker)
+    
+    Circuit States (pybreaker):
+    - CLOSED: Normal (0-2 failures)
+    - OPEN: Fail fast (≥3 failures in 60s window)
+    - HALF_OPEN: Recovery test (after 60s timeout)
+    
+    Returns:
+        Initialized LLM instance
+        
+    Raises:
+        CircuitBreakerError: If circuit is open (too many failures)
+        Exception: If LLM initialization fails
+    """
+    try:
+        llm = llm_circuit_breaker(get_llm)()  # Pattern 2 retry applied here
+        logger.info("✅ LLM loaded successfully (circuit breaker CLOSED)")
+        return llm
+    except CircuitBreakerError as e:
+        logger.error(f"❌ LLM circuit breaker OPEN: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"❌ LLM failed: {e}")
+        raise  # Increment failure count in circuit breaker
+
+# ============================================================================
 # LIFESPAN MANAGEMENT
 # ============================================================================
 
@@ -298,7 +345,7 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     logger.info("=" * 70)
-    logger.info("Starting Xoe-NovAi RAG API v0.1.2")
+    logger.info("Starting Xoe-NovAi RAG API v0.1.4-stable")
     logger.info("=" * 70)
     
     # Start metrics server
@@ -449,7 +496,8 @@ async def root():
     }
 
 @app.get("/health", response_model=HealthResponse)
-async def health_check():
+@limiter.limit("120/minute")  # More permissive for health checks
+async def health_check(request: Request):
     """
     Health check endpoint with integrated healthcheck.py results.
     
@@ -537,10 +585,10 @@ async def query_endpoint(request: Request, query_req: QueryRequest):
         start_time = time.time()
         
         try:
-            # Initialize LLM (lazy loading)
+            # Initialize LLM (lazy loading with circuit breaker - Pattern 5)
             if llm is None:
-                logger.info("Lazy loading LLM...")
-                llm = get_llm()
+                logger.info("Lazy loading LLM with circuit breaker...")
+                llm = load_llm_with_circuit_breaker()  # Pattern 5 circuit breaker
                 logger.info("✓ LLM loaded successfully")
             
             # Retrieve context if RAG enabled
@@ -592,6 +640,17 @@ async def query_endpoint(request: Request, query_req: QueryRequest):
                 token_rate_tps=round(token_rate, 2)
             )
             
+        except CircuitBreakerError:
+            logger.error("LLM circuit breaker is OPEN - service temporarily unavailable")
+            record_error('circuit_breaker_open', 'llm')
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "error": "LLM service unavailable (circuit open)",
+                    "retry_after": 120,
+                    "detail": "The LLM service has experienced too many failures and is temporarily unavailable. Please retry after 120 seconds."
+                }
+            )
         except Exception as e:
             logger.error(f"Query failed: {e}", exc_info=True)
             record_error('query_failed', 'llm')
@@ -616,11 +675,12 @@ async def stream_endpoint(request: Request, query_req: QueryRequest):
     
     async def generate() -> AsyncGenerator[str, None]:
         """Generate SSE stream."""
+        global llm
         try:
-            # Initialize LLM (lazy loading)
+            # Initialize LLM (lazy loading with circuit breaker - Pattern 5)
             if llm is None:
-                logger.info("Lazy loading LLM for streaming...")
-                llm = get_llm()
+                logger.info("Lazy loading LLM for streaming with circuit breaker...")
+                llm = load_llm_with_circuit_breaker()  # Pattern 5 circuit breaker
                 logger.info("✓ LLM loaded successfully")
             
             # Retrieve context if RAG enabled
@@ -671,6 +731,10 @@ async def stream_endpoint(request: Request, query_req: QueryRequest):
                 f"({token_rate:.1f} tok/s)"
             )
             
+        except CircuitBreakerError:
+            logger.error("LLM circuit breaker is OPEN during streaming")
+            record_error('circuit_breaker_open', 'llm')
+            yield f"data: {json.dumps({'type': 'error', 'error': 'LLM service unavailable (circuit open). Retry after 120 seconds.', 'retry_after': 120})}\n\n"
         except Exception as e:
             logger.error(f"Streaming failed: {e}", exc_info=True)
             record_error('stream_failed', 'llm')

@@ -1,23 +1,40 @@
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.3-beta - Crawl Service Dockerfile
+# Xoe-NovAi Phase 1 v0.1.4-stable - Chainlit UI Service Dependencies (PRODUCTION)
 # ============================================================================
-# Purpose: Multi-stage production build for CrawlModule service
-# Guide Reference: Section 6.3.3 (Dockerfile.crawl)
-# Last Updated: 2025-11-02 (Syntax repair for offline install)
-# Features:
-#   - Offline wheelhouse support via ARG OFFLINE
-#   - Non-root user (UID=1001)
-#   - Zero-telemetry env vars
-#   - Ryzen optimization hooks
+# Purpose: Production dependencies for Chainlit UI with RAG API integration
+# Status: Production Ready (FAISS Release - v0.1.4-stable)
+# Guide Reference: Section 4 (Core Dependencies), Section 8 (Optimization)
+# Last Updated: 2026-01-03 (Production Optimization)
+# Python: 3.12.7
+#
+# Installation:
+#   pip install -r requirements-chainlit.txt
+#
+# Validation:
+#   python3 -c "import chainlit; print(f'✓ chainlit {chainlit.__version__}')"
+#   python3 -c "import fastapi; print('✓ FastAPI ready')"
+#
+# Production Notes:
+#   ✓ Zero-telemetry enforced via CHAINLIT_NO_TELEMETRY=true
+#   ✓ Async HTTP support via httpx for RAG API integration
+#   ✓ FastAPI version pinned for chainlit 2.8.3 (requires <0.117, >=0.116.1)
+#   ✓ Dev dependencies removed (pytest removed for production)
 # ============================================================================
 
 # ============================================================================
-# STAGE 1: BUILDER
+# UI FRAMEWORK
 # ============================================================================
 chainlit==2.8.3
 
 # ============================================================================
-# STAGE 2: RUNTIME
+# API FRAMEWORK & ASYNC (chainlit 2.8.3 requires fastapi<0.117, >=0.116.1)
+# ============================================================================
+fastapi>=0.116.1,<0.117
+uvicorn[standard]>=0.38.0
+pydantic>=2.7.4,<3.0.0
+
+# ============================================================================
+# HTTP CLIENT
 # ============================================================================
 httpx==0.27.2
 
@@ -28,18 +45,74 @@ orjson==3.11.3
 toml==0.10.2
 
 # ============================================================================
-# LOGGING
+# LOGGING & MONITORING
 # ============================================================================
 json-log-formatter==1.1.1
+prometheus-client==0.23.1
+psutil==7.1.2
 
 # ============================================================================
-# UTILITIES
+# VOICE INTERFACE & AUDIO PROCESSING (v0.2.1 - Piper ONNX Priority)
+# ============================================================================
+# Voice interface architecture with cascading fallback chain:
+# 1. Piper ONNX (PRIMARY - torch-free, real-time CPU, ONNX Runtime backend) ⭐
+# 2. XTTS V2 (FALLBACK - torch-dependent, GPU-preferred, good quality)
+# 3. pyttsx3 (LAST RESORT - system TTS, poor quality)
+# 4. FUTURE: Fish-Speech (SOTA 2025, requires GPU with 8GB+ VRAM)
+#    Repository: https://github.com/fishaudio/fish-speech
+#    Status: Waiting for GPU-capable systems
+#
+# Device: Optimized for AMD Ryzen 7 (CPU-based, Vulkan support)
+# STT: Faster Whisper (GPU-optional, excellent on CPU)
+# TTS: Piper ONNX (no PyTorch required, real-time)
+
+# Speech-to-Text (STT) - GPU-accelerated
+faster-whisper==1.2.1      # ⚡ 4x faster than OpenAI Whisper, GPU-optimized with CTranslate2
+ctranslate2>=4.0.0         # C++ backend for Faster Whisper (CUDA/ROCm/CPU)
+
+# Text-to-Speech (TTS) - PRIMARY: Piper ONNX (torch-free)
+piper-tts==1.3.0           # 🎯 PRIMARY: ONNX Runtime TTS (torch-free, real-time CPU)
+                            #    - Quality: 7.8/10 (good, not SOTA)
+                            #    - Speed: Real-time on CPU
+                            #    - Languages: 16+, Voices: 40+
+                            #    - Repository: https://github.com/rhasspy/piper
+
+# Audio Processing & I/O
+scipy>=1.11.0              # Audio file operations (WAV, MP3, etc.)
+librosa>=0.10.0            # Audio feature extraction
+SpeechRecognition==3.10.4  # Fallback audio input processing
+# pyaudio==0.2.13          # Audio I/O (optional, requires system audio libs in Docker; skipped)
+
+# Torch & GPU Support (OPTIONAL - for high-end GPU systems)
+# If you upgrade to a GPU with CUDA/ROCm support, uncomment:
+# torch>=2.0.0              # For XTTS V2 or Fish-Speech (GPU-optimized)
+# torchaudio>=2.0.0         # Audio processing with torch
+# TTS>=0.22.0               # Coqui TTS (XTTS V2 support)
+#
+# For now, PyTorch is NOT included to keep CPU-only deployment lightweight
+numpy>=1.24.0              # Numerical operations (required by Piper)
+
+# FAISS Integration for Voice Commands
+faiss-cpu>=1.8.0           # CPU-optimized FAISS
+# Alternative: pip install faiss-gpu if CUDA is available
+
+# System TTS Fallback (very poor quality, only as last resort)
+pyttsx3==2.90              # Fallback: local text-to-speech (offline, robotic quality)
+
+# TTS Strategy: Piper ONNX primary, pyttsx3 fallback
+# No cloud services or torch dependencies in current stack
+
+
+# ============================================================================
+# UTILITIES & RESILIENCE (PRODUCTION)
 # ============================================================================
 tenacity==9.1.2
 python-dotenv==1.2.1
+slowapi==0.1.9
 
 # ============================================================================
-# TESTING (Optional for container, required for CI/CD)
+# TESTING (REMOVED FOR PRODUCTION)
 # ============================================================================
-pytest==8.4.2
-pytest-asyncio==0.25.2
+# Removed: pytest, pytest-asyncio
+# Reason: Dev/testing dependencies not needed in production image
+# For CI/CD testing, use separate requirements-test.txt

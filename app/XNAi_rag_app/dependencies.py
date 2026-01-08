@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 - Dependencies Module (PRODUCTION-READY)
+# Xoe-NovAi Phase 1 v0.1.4-stable - Dependencies Module (PRODUCTION-READY)
 # ============================================================================
 # Purpose: Centralized dependency management for LLM, embeddings, vectorstore, curator
 # Guide Reference: Section 4 (Core Dependencies Module)
@@ -245,7 +245,7 @@ async def shutdown_dependencies():
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=1, max=10),
     retry=retry_if_exception_type((RuntimeError, OSError, ConnectionError, TimeoutError)),
-    reraise=True)
+    reraise=True
 )
 def get_llm(model_path: Optional[str] = None, **kwargs) -> LlamaCpp:
     """
@@ -606,7 +606,7 @@ def get_curator(cache_dir: Optional[str] = None, **kwargs) -> Any:
     Guide Reference: Section 4.3 (CrawlModule Integration)
     Guide Reference: Section 9.2 (CrawlModule Architecture)
     
-    NEW in v0.1.2: Provides access to CrawlModule for:
+    NEW in v0.1.4: Provides access to CrawlModule for:
     - Library curation from 4 sources (Gutenberg, arXiv, PubMed, YouTube)
     - Rate limiting (30 req/min)
     - URL allowlist validation

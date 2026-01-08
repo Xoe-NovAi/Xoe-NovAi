@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 - Logging Configuration Module (FIXED)
+# Xoe-NovAi Phase 1 v0.1.4-stable - Logging Configuration Module (FIXED)
 # ============================================================================
 # Purpose: Structured JSON logging with rotation and multiple outputs
 # Guide Reference: Section 5.2 (JSON Structured Logging)
@@ -43,7 +43,7 @@ try:
     CONFIG = load_config()
 except Exception as e:
     print(f"Warning: Could not load config: {e}")
-    CONFIG = {'metadata': {'stack_version': 'v0.1.2'}, 'performance': {}}
+    CONFIG = {'metadata': {'stack_version': 'v0.1.4-stable'}, 'performance': {}}
 
 # ============================================================================
 # CUSTOM JSON FORMATTER
@@ -74,9 +74,9 @@ class XNAiJSONFormatter(JSONFormatter):
         
         # Add stack version
         try:
-            log_entry["stack_version"] = get_config_value("metadata.stack_version", "v0.1.2")
+            log_entry["stack_version"] = get_config_value("metadata.stack_version", "v0.1.4-stable")
         except:
-            log_entry["stack_version"] = "v0.1.2"
+            log_entry["stack_version"] = "v0.1.4-stable"
         
         # Add process info
         log_entry["process_id"] = record.process
@@ -421,7 +421,7 @@ def log_startup_info():
     logger.info(
         "Xoe-NovAi starting",
         extra={
-            "stack_version": CONFIG.get('metadata', {}).get('stack_version', 'v0.1.2'),
+            "stack_version": CONFIG.get('metadata', {}).get('stack_version', 'v0.1.4-stable'),
             "codename": CONFIG.get('metadata', {}).get('codename', 'unknown'),
             "phase": CONFIG.get('project', {}).get('phase', 1),
         }
@@ -445,7 +445,7 @@ def log_startup_info():
 if __name__ == "__main__":
     """Test logging configuration."""
     print("=" * 70)
-    print("Xoe-NovAi Logging Configuration - Test Suite v0.1.2")
+    print("Xoe-NovAi Logging Configuration - Test Suite v0.1.4-stable")
     print("=" * 70)
     print()
     

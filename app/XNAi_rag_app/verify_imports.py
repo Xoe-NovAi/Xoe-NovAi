@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 - Import Verification Script
+# Xoe-NovAi Phase 1 v0.1.4-stable - Import Verification Script
 # ============================================================================
 # Purpose: Validate all Python dependencies before deployment
 # Guide Reference: Section 4 (Core Module - verify_imports.py)
@@ -11,7 +11,7 @@
 #   - Tests llama-cpp-python compilation
 #   - Verifies LangChain components
 #   - No HuggingFace dependencies check
-#   - NEW v0.1.2: CrawlModule dependency validation
+#   - NEW v0.1.4: CrawlModule dependency validation
 # ============================================================================
 
 import sys
@@ -144,7 +144,7 @@ def check_langchain_components():
     return all_passed
 
 def check_crawl_dependencies():
-    """NEW v0.1.2: Validate CrawlModule deps."""
+    """NEW v0.1.4: Validate CrawlModule deps."""
     crawl_comps = [
         ('crawl4ai', None, 'WebCrawler'),
         ('yt_dlp', None, 'YoutubeDL'),
@@ -268,7 +268,7 @@ if __name__ == "__main__":
       0 - All imports verified
       1 - One or more imports failed
     """
-    print_header("Xoe-NovAi Phase 1 v0.1.2 - Import Verification")
+    print_header("Xoe-NovAi Phase 1 v0.1.4-stable - Import Verification")
     
     # Run verification
     results = run_verification()

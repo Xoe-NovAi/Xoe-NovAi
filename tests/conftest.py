@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 - pytest Configuration (FIXED)
+# Xoe-NovAi Phase 1 v0.1.4-stable - pytest Configuration (FIXED)
 # ============================================================================
 # Purpose: Shared fixtures and pytest configuration
 # Guide Reference: Section 11 (Testing Infrastructure)
-# Last Updated: 2025-10-18
+# Last Updated: 2026-01-09
 # CRITICAL FIX: Added all missing fixtures (mock_redis, mock_crawler, etc.)
 # ============================================================================
 
@@ -28,7 +28,7 @@ def test_config():
     """Session-scoped test configuration."""
     return {
         'metadata': {
-            'stack_version': 'v0.1.2-test',
+            'stack_version': 'v0.1.4-stable',
             'codename': 'Test Build',
             'architecture': 'testing'
         },

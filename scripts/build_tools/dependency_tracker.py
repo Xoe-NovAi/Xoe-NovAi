@@ -64,11 +64,26 @@ class DependencyTracker:
     def _load_database(self):
         """Load existing dependency database."""
         if self.dep_db_path.exists():
-            with open(self.dep_db_path) as f:
-                data = json.load(f)
-                for pkg, info in data.items():
-                    info['requesters'] = set(info['requesters'])
-                    self.dependencies[pkg] = DependencyInfo(**info)
+            try:
+                with open(self.dep_db_path) as f:
+                    content = f.read().strip()
+                    if not content:
+                        # Empty file - initialize empty database
+                        return
+                    data = json.loads(content)
+                    for pkg, info in data.items():
+                        info['requesters'] = set(info['requesters'])
+                        self.dependencies[pkg] = DependencyInfo(**info)
+            except (json.JSONDecodeError, ValueError) as e:
+                # Corrupted file - log warning and start fresh
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Corrupted dependency database at {self.dep_db_path}: {e}. Starting fresh.")
+                # Backup corrupted file
+                backup_path = self.dep_db_path.with_suffix('.json.bak')
+                if self.dep_db_path.exists():
+                    import shutil
+                    shutil.move(str(self.dep_db_path), str(backup_path))
     
     def _save_database(self):
         """Save dependency database to disk."""
@@ -224,24 +239,42 @@ def verify_manifest(wheelhouse_dir: str) -> bool:
         return True
     
     with open(manifest_path) as f:
-        expected = json.load(f)
+        data = json.load(f)
     
-    failed = False
-    for whl_name, exp_hash in expected.items():
-        whl_path = path / whl_name
-        if not whl_path.exists():
-            logger.error(f"Missing wheel: {whl_name}")
-            failed = True
-            continue
-        actual_hash = compute_sha256(str(whl_path))
-        if actual_hash != exp_hash:
-            logger.error(f"Hash mismatch for {whl_name}: expected {exp_hash}, got {actual_hash}")
-            failed = True
-    
-    if failed:
-        return False
-    logger.info("All wheels verified successfully")
-    return True
+    # Check if this is a wheel manifest (dict with .whl filenames as keys)
+    # or a download log (dict with 'downloads', 'errors', 'skipped' keys)
+    if isinstance(data, dict):
+        # Check if it's a download log format
+        if 'downloads' in data or 'errors' in data or 'skipped' in data:
+            logger.info("Found download log instead of wheel manifest - generating new manifest")
+            generate_manifest(wheelhouse_dir)
+            return True
+        
+        # It's a wheel manifest - verify it
+        expected = data
+        failed = False
+        for whl_name, exp_hash in expected.items():
+            # Skip non-wheel entries
+            if not whl_name.endswith('.whl'):
+                continue
+            whl_path = path / whl_name
+            if not whl_path.exists():
+                logger.error(f"Missing wheel: {whl_name}")
+                failed = True
+                continue
+            actual_hash = compute_sha256(str(whl_path))
+            if actual_hash != exp_hash:
+                logger.error(f"Hash mismatch for {whl_name}: expected {exp_hash}, got {actual_hash}")
+                failed = True
+        
+        if failed:
+            return False
+        logger.info("All wheels verified successfully")
+        return True
+    else:
+        logger.warning("Invalid manifest format - generating new one")
+        generate_manifest(wheelhouse_dir)
+        return True
 
 def main():
     """CLI entrypoint."""
