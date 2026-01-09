@@ -62,7 +62,8 @@ This guide helps you quickly find what you need based on your role and goals.
 ### For Operations/DevOps
 1. [`runbooks/updates-running.md`](runbooks/updates-running.md) - Current status
 2. [`howto/docker-setup.md`](howto/docker-setup.md) - Docker setup
-3. [`runbooks/build-tools.md`](runbooks/build-tools.md) - Build system
+3. [`howto/makefile-usage.md`](howto/makefile-usage.md) - Complete build system
+4. [`runbooks/build-tools.md`](runbooks/build-tools.md) - Build tools reference
 
 **Time:** 30 minutes
 

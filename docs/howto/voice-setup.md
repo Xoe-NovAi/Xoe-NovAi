@@ -6,15 +6,364 @@
 
 ---
 
-## What's New: Voice Capabilities
+## What's New in v0.1.5
 
-Xoe-NovAi now supports full voice interaction in Chainlit! You can:
+### 🎯 "Hey Nova" Wake Word Detection
 
-- 🎤 **Speak commands** instead of typing
-- 🔊 **Hear responses** automatically
-- ⚙️ **Adjust voice settings** (speed, pitch, volume)
-- ♿ **Accessibility features** for vision-impaired users
-- 🚀 **Foundation for agentic control** (future: control entire computer via voice)
+Activate voice mode hands-free by saying **"Hey Nova"**:
+
+```
+You: "Hey Nova, find books about AI"
+Nova: "Sure! Searching for books about AI..."
+```
+
+**Features:**
+- No button press needed to start listening
+- Adjustable sensitivity (0.5 - 1.0)
+- 100% local - no cloud dependencies
+
+### 🔊 Piper ONNX TTS (100% Offline)
+
+**Industry-leading CPU-optimized TTS:**
+- Zero PyTorch dependency
+- Real-time synthesis (<100ms latency)
+- ONNX runtime for maximum efficiency
+- Multiple voice models available
+
+**Setup (Automatic):**
+```bash
+# Already included in requirements-chainlit.txt
+pip install piper-onnx
+```
+
+### ⚡ Streaming Audio Support
+
+Real-time voice-to-voice conversation:
+
+1. **Wake Word**: "Hey Nova" activates listening
+2. **Streaming VAD**: Automatic silence detection
+3. **Faster Whisper STT**: Transcribes in real-time
+4. **Piper ONNX TTS**: Speaks response immediately
+
+### 🛡️ Rate Limiting & Input Validation
+
+**Protection features:**
+- 10 requests/minute per client
+- 10MB audio size limit
+- 5-minute audio duration limit
+- Token bucket algorithm
+
+### 💾 Redis Session Persistence
+
+**Voice conversations are persisted to Redis:**
+- Session ID: `xnai:voice:session:{id}`
+- Conversation history: `xnai:voice:conversation:{id}`
+- 1-hour TTL automatically applied
+- Survives app restarts
+
+### 🔍 FAISS Knowledge Retrieval
+
+**Voice queries search the knowledge base:**
+- Queries FAISS index at `/app/XNAi_rag_app/faiss_index`
+- Top-3 semantic matches returned
+- Context passed to RAG pipeline
+- Falls back to keyword search if embeddings unavailable
+
+### 📊 Prometheus Metrics
+
+**Voice operations monitored:**
+- `xoe_voice_stt_requests_total{status,provider}`
+- `xoe_voice_tts_requests_total{status,provider}`
+- `xoe_voice_circuit_breaker_open{component}`
+- `xoe_voice_stt_latency_seconds{provider}`
+
+### 🔄 Circuit Breaker Resilience
+
+**Prevents cascade failures:**
+- Opens after 5 consecutive failures
+- 30-second recovery timeout
+- Half-open state for health checks
+- Automatic metrics updates
+
+---
+
+## Quick Start
+
+### Option 1: Chainlit Voice App
+
+```bash
+chainlit run app/XNAi_rag_app/chainlit_app_voice.py -w --port 8001
+```
+
+### Option 2: Docker
+
+```bash
+docker-compose up -d chainlit
+```
+
+---
+
+## Wake Word Configuration
+
+```toml
+# config.toml
+[voice]
+wake_word = "hey nova"
+wake_word_enabled = true
+wake_word_sensitivity = 0.8
+```
+
+**Commands:**
+- Say "Hey Nova" to activate
+- Say "stop voice chat" to deactivate
+- Say "voice settings" to adjust sensitivity
+
+---
+
+## TTS Provider Selection
+
+| Provider | Quality | Latency | Offline | Dependencies |
+|----------|---------|---------|---------|--------------|
+| **Piper ONNX** | ⭐⭐⭐⭐ | <100ms | ✅ | None |
+| pyttsx3 | ⭐⭐⭐ | Variable | ✅ | System voices |
+| GTTS | ⭐⭐⭐⭐ | 200ms | ❌ | Internet |
+| ElevenLabs | ⭐⭐⭐⭐⭐ | 50ms | ❌ | API key |
+
+**Recommended: Piper ONNX** (default in v0.1.5)
+
+---
+
+## Voice Commands Reference
+
+### Activation
+| Command | Action |
+|---------|--------|
+| "Hey Nova" | Activate voice mode |
+| "Stop voice chat" | Deactivate voice mode |
+| "Voice settings" | Open settings panel |
+
+### Playback Control
+| Command | Action |
+|---------|--------|
+| "Speak slower" | 0.5x speed |
+| "Speak faster" | 1.5x speed |
+| "Higher pitch" | +0.2 pitch |
+| "Lower pitch" | -0.2 pitch |
+| "Louder" | +20% volume |
+| "Quieter" | -20% volume |
+
+---
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Voice-to-Voice Pipeline                  │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────────┐  │
+│  │ Microphone  │───▶│ Wake Word   │───▶│ VAD (Silence)   │  │
+│  │             │    │ "Hey Nova"  │    │ Detection       │  │
+│  └─────────────┘    └─────────────┘    └────────┬────────┘  │
+│                                                  │           │
+│                                                  ▼           │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │              Faster Whisper STT                         │ │
+│  │  - torch-free CTranslate2 backend                      │ │
+│  │  - VAD filtering enabled                               │ │
+│  │  - 5-beam search                                       │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                          │                                   │
+│                          ▼                                   │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │              RAG Pipeline                                │ │
+│  │  - Query understanding                                  │ │
+│  │  - Knowledge retrieval                                  │ │
+│  │  - Response generation                                  │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                          │                                   │
+│                          ▼                                   │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │              Piper ONNX TTS                              │ │
+│  │  - ONNX runtime                                         │ │
+│  │  - 100ms latency                                        │ │
+│  │  - Multiple speakers                                    │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│                          │                                   │
+│                          ▼                                   │
+│  ┌─────────────┐                                               │
+│  │ Speaker     │                                               │
+│  └─────────────┘                                               │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Offline Mode
+
+**100% offline voice pipeline:**
+
+```toml
+[voice]
+offline_mode = true
+stt_provider = "faster_whisper"
+tts_provider = "piper_onnx"
+```
+
+**No external dependencies:**
+- No OpenAI API calls
+- No Google TTS
+- No ElevenLabs
+- All processing local
+
+---
+
+## Performance Optimization
+
+### CPU Optimization (AMD Ryzen)
+
+```toml
+[voice]
+stt_compute_type = "float16"
+stt_beam_size = 5
+streaming_buffer_size = 4096
+```
+
+**Expected Performance:**
+- Transcription: <500ms for 10s audio
+- Synthesis: <100ms response time
+- Wake word: <200ms detection
+
+### Memory Optimization
+
+```toml
+[voice]
+max_audio_size_bytes = 10485760  # 10MB
+cache_ttl_seconds = 3600
+cache_max_entries = 1000
+```
+
+---
+
+## Troubleshooting
+
+### Wake Word Not Detecting
+
+```bash
+# Check wake word detector initialization
+python3 -c "
+from app.XNAi_rag_app.voice_interface import WakeWordDetector
+detector = WakeWordDetector(wake_word='hey nova', sensitivity=0.8)
+print('Wake word detector ready')
+"
+```
+
+### Piper ONNX Not Loading
+
+```bash
+# Verify installation
+pip show piper-onnx
+
+# Check model files exist
+ls -la models/piper/
+```
+
+### Audio Quality Issues
+
+1. **Low volume**: Adjust microphone gain
+2. **Noise**: Use VAD filtering (enabled by default)
+3. **Dropouts**: Increase streaming buffer size
+
+---
+
+## Configuration Reference
+
+```toml
+[voice]
+enabled = true
+
+# Wake Word
+wake_word = "hey nova"
+wake_word_enabled = true
+wake_word_sensitivity = 0.8
+
+# STT
+stt_provider = "faster_whisper"
+stt_device = "cpu"
+stt_compute_type = "float16"
+stt_beam_size = 5
+stt_timeout_seconds = 60
+vad_filter = true
+vad_min_silence_duration_ms = 500
+
+# TTS
+tts_provider = "piper_onnx"
+piper_model = "en_US-john-medium"
+tts_timeout_seconds = 30
+
+# Limits
+max_audio_size_bytes = 10485760
+max_audio_duration_seconds = 300
+rate_limit_per_minute = 10
+rate_limit_window_seconds = 60
+
+# Streaming
+streaming_enabled = true
+streaming_buffer_size = 4096
+
+# Offline
+offline_mode = true
+preload_models = false
+
+# Cache
+enable_cache = true
+cache_ttl_seconds = 3600
+cache_max_entries = 1000
+```
+
+---
+
+## Developer Integration
+
+```python
+from app.XNAi_rag_app.voice_interface import (
+    VoiceInterface,
+    VoiceConfig,
+    STTProvider,
+    TTSProvider,
+    WakeWordDetector,
+    AudioStreamProcessor,
+    VoiceRateLimiter,
+)
+
+# Initialize with config
+config = VoiceConfig(
+    stt_provider=STTProvider.FASTER_WHISPER,
+    tts_provider=TTSProvider.PIPER_ONNX,
+    wake_word="hey nova",
+    wake_word_enabled=True,
+    wake_word_sensitivity=0.8,
+    offline_mode=True,
+)
+
+voice = VoiceInterface(config)
+
+# Check wake word
+detector = WakeWordDetector(wake_word="hey nova", sensitivity=0.8)
+detected, confidence = detector.detect("Hey Nova, hello")
+# detected=True, confidence=0.95
+
+# Rate limiting
+limiter = VoiceRateLimiter(max_requests=10, window_seconds=60)
+allowed, msg = limiter.allow_request("client_1")
+# allowed=True
+
+# Stream processing
+stream = AudioStreamProcessor(config)
+is_speech = stream.add_chunk(audio_data)
+```
+
 
 ---
 

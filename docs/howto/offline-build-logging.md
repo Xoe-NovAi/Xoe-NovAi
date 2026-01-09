@@ -90,18 +90,20 @@ The offline build system logs all downloads to ensure:
 
 ### 2. Docker Build Logging
 
-**Script:** `scripts/build_docker.sh`
+**Command:** `make build`
 
 **Features:**
-- Logs all Docker build output
-- Per-service build logs
-- Build report generation
+- Logs all Docker build output via BuildKit
+- Per-service build logs with comprehensive tracking
+- Build report generation with dependency analysis
 - Tracks apt and pip downloads during build
+- Integration with build tracking system
 
 **Usage:**
 ```bash
-./scripts/build_docker.sh
+make build
 # Logs automatically created in logs/docker_build/
+# Build analysis available via make build-analyze
 ```
 
 ### 3. Enhanced Build Logging

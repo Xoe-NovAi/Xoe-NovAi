@@ -1,6 +1,6 @@
-# Stack-Cat v0.1.7-beta User Guide
+# Stack-Cat v0.1.5 User Guide
 
-**Comprehensive Documentation for the Stack Documentation Generator**
+**Comprehensive Documentation for the Xoe-NovAi Stack Documentation Generator**
 
 ---
 
@@ -15,9 +15,10 @@
 7. [Usage Patterns](#usage-patterns)
 8. [Output Formats](#output-formats)
 9. [Advanced Features](#advanced-features)
-10. [Troubleshooting](#troubleshooting)
-11. [Best Practices](#best-practices)
-12. [Examples & Recipes](#examples--recipes)
+10. [Automated Maintenance](#automated-maintenance)
+11. [Troubleshooting](#troubleshooting)
+12. [Best Practices](#best-practices)
+13. [Examples & Recipes](#examples--recipes)
 
 ---
 
@@ -25,13 +26,14 @@
 
 ### What is Stack-Cat?
 
-Stack-Cat is a powerful documentation generator designed specifically for the Xoe-NovAi stack. It automatically collects, organizes, and formats your codebase into multiple documentation formats, making it easy to:
+Stack-Cat is a comprehensive documentation generator designed specifically for the Xoe-NovAi stack. It automatically collects, organizes, and formats your codebase into multiple documentation formats, making it easy to:
 
 - **Share your stack** with AI assistants (Claude, ChatGPT, etc.)
 - **Onboard new developers** with comprehensive code overviews
 - **Archive project snapshots** at specific points in time
 - **Review code structure** across your entire project
 - **Extract individual files** from concatenated documentation
+- **Automated maintenance** with intelligent archiving and cleanup
 
 ### Key Features
 
@@ -41,7 +43,7 @@ Stack-Cat is a powerful documentation generator designed specifically for the Xo
 - JSON (`.json`) - Structured metadata for programmatic access
 
 🎯 **Flexible File Selection**
-- Pre-configured groups (api, rag, frontend, crawler)
+- Pre-configured groups (api, rag, frontend, crawler, voice)
 - Custom whitelist configuration
 - Directory-wide concatenation
 - Pattern-based file matching
@@ -53,8 +55,16 @@ Stack-Cat is a powerful documentation generator designed specifically for the Xo
 📊 **Smart Features**
 - File type detection and syntax highlighting
 - Automatic exclusion of build artifacts and caches
-- Stack version validation
+- v0.1.5 stack compliance validation
 - Timestamped outputs with symlinks to latest
+- Automated archiving (7-day retention)
+- Makefile integration (11 targets)
+
+🚀 **Production Ready**
+- Enterprise-grade error handling
+- Safety confirmations for destructive operations
+- Comprehensive logging and progress indicators
+- Cross-platform compatibility (Linux/Mac/Windows)
 
 ---
 
@@ -100,17 +110,14 @@ your-project/
 │       └── ...
 ├── scripts/
 │   └── stack-cat/
-│       ├── stack-cat_v017.sh      # Main script
-│       ├── whitelist.json         # File filtering rules
-│       ├── groups.json            # Pre-configured file groups
-│       └── stack-cat-output/      # Generated documentation
-│           ├── stack-cat_latest.md
-│           ├── stack-cat_latest.html
-│           └── 20251021_143022/   # Timestamped snapshot
-│               ├── stack-cat_20251021_143022.md
-│               ├── stack-cat_20251021_143022.html
-│               ├── stack-manifest_20251021_143022.json
-│               └── separate-md/   # Individual file extracts
+│       ├── stack-cat.sh              # Main script (v0.1.5)
+│       ├── whitelist.json            # File filtering rules
+│       ├── groups.json               # Pre-configured file groups
+│       ├── stack-cat-output/         # Active documentation output
+│       ├── stack-cat-archive/        # Archived historical snapshots
+│       ├── stack-cat_latest.md       # Symlink to latest markdown
+│       ├── stack-cat_latest.html     # Symlink to latest HTML
+│       └── stack-manifest_latest.json # Symlink to latest JSON
 ├── docker-compose.yml
 ├── config.toml
 └── ...
@@ -1688,4 +1695,4 @@ Stack-Cat provides the flexibility and features you need.
 
 *Stack-Cat v0.1.7-beta User Guide*  
 *Last Updated: 2025-10-21*  
-*Part of the Xoe-NovAi Project*
+*Part of the Xoe-NovAi Project**Stack-Cat v0.1.7-beta User Guide*  

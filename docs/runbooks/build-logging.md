@@ -60,8 +60,9 @@ docker build --network=none -f Dockerfile.api -t test .
 - ✅ Timestamps included
 
 ### Manual Logging
-- Use `scripts/enhanced_build_logging.sh` for custom builds
-- Functions: `apt_get_with_logging`, `pip_with_logging`, `monitor_docker_build`
+- Use `make build-tracking` for detailed build analysis
+- Use `make build-analyze` for current state analysis
+- Use `make build-report` for comprehensive build reports
 
 ---
 

@@ -399,8 +399,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Xoe-NovAi RAG API",
-    description="CPU-optimized RAG service with streaming support",
-    version=CONFIG['metadata']['stack_version'],
+    description="CPU-optimized RAG service with streaming support and voice-to-voice capabilities",
+    version="0.1.5",
     lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc"

@@ -26,6 +26,9 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 import asyncio
 
+# CRITICAL FIX: Import path resolution (Pattern 1)
+sys.path.insert(0, str(Path(__file__).parent))
+
 # Retry logic
 from tenacity import (
     retry,
@@ -95,40 +98,10 @@ def filter_llama_kwargs(**kwargs) -> dict:
     return filtered
 
 # ============================================================================
-# MEMORY MANAGEMENT
+# MEMORY MANAGEMENT - REMOVED RAM REQUIREMENTS
 # ============================================================================
-
-def check_available_memory(required_gb: float = 6.0) -> bool:
-    """
-    Check if sufficient memory available before loading models.
-    
-    Guide Reference: Section 4.2 (Memory Management)
-    
-    Args:
-        required_gb: Required memory in GB (default: 6.0)
-        
-    Returns:
-        True if sufficient memory available
-        
-    Raises:
-        MemoryError: If insufficient memory
-    """
-    memory = psutil.virtual_memory()
-    available_gb = memory.available / (1024 ** 3)
-    used_gb = memory.used / (1024 ** 3)
-    
-    logger.info(
-        f"Memory status: {used_gb:.2f}GB used, {available_gb:.2f}GB available "
-        f"(required: {required_gb:.1f}GB)"
-    )
-    
-    if available_gb < required_gb:
-        raise MemoryError(
-            f"Insufficient memory: {available_gb:.2f}GB available, "
-            f"{required_gb:.1f}GB required. Close other applications or increase system RAM."
-        )
-    
-    return True
+# Memory checks removed per user request - no longer enforces RAM limits
+# Models will load regardless of available memory
 
 # ============================================================================
 # REDIS CLIENT
@@ -271,9 +244,8 @@ def get_llm(model_path: Optional[str] = None, **kwargs) -> LlamaCpp:
         FileNotFoundError: If model not found
         RuntimeError: If initialization fails after 3 retries
     """
-    # Check memory first (fail-fast)
-    check_available_memory(required_gb=CONFIG['performance']['memory_limit_gb'])
-    
+    # Memory checks removed per user request - load models regardless of available RAM
+
     # Load model path from config if not provided
     if model_path is None:
         model_path = os.getenv(
@@ -763,4 +735,4 @@ __all__ = [
     "cleanup_old_backups",
     "check_dependencies_ready",
     "check_available_memory",
-]
+]    

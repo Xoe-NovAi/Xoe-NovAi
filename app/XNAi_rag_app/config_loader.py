@@ -23,6 +23,9 @@ from typing import Dict, Any, Optional
 from functools import lru_cache
 from pathlib import Path
 
+# CRITICAL FIX: Import path resolution (Pattern 1)
+sys.path.insert(0, str(Path(__file__).parent))
+
 # Pydantic for schema validation (NEW v0.1.4)
 from pydantic import BaseModel, Field, validator
 
@@ -361,8 +364,8 @@ def validate_config() -> bool:
     
     # Version check (warn, don't fail)
     version = config.get("metadata", {}).get("stack_version", "unknown")
-    if version not in ["v0.1.1_rev_1.4", "v0.1.2", "v0.1.4-stable"]:
-        logger.warning(f"Unexpected stack_version: {version} (expected v0.1.4-stable)")
+    if version not in ["v0.1.1_rev_1.4", "v0.1.2", "v0.1.4-stable", "v0.1.5"]:
+        logger.warning(f"Unexpected stack_version: {version} (expected v0.1.4-stable or v0.1.5)")
     checks.append(f"version={version}")
     
     # Memory limit check (critical)

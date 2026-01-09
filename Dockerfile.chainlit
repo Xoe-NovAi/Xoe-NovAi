@@ -17,13 +17,13 @@
 # ============================================================================
 
 # ============================================================================
-# STAGE 1: BUILDER - Install all dependencies
+# STAGE 1: BUILDER - Install all dependencies with proper caching
 # ============================================================================
 FROM python:3.12-slim AS builder
 
 LABEL maintainer="Xoe-NovAi Team"
 LABEL stage="builder"
-LABEL version="0.1.4-stable-optimized"
+LABEL version="0.1.5"
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -34,36 +34,45 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /build
 
-# Copy requirements first (layer caching)
+# Copy requirements first (for layer caching)
 COPY requirements-chainlit.txt .
-COPY wheelhouse ./wheelhouse
 
-# Control whether to use pre-built wheelhouse and whether to (re)build wheels
-ARG USE_WHEELHOUSE=true
-ARG BUILD_WHEELS=false
+# Copy build tracking script
+COPY scripts/build_tracking.py /build/build_tracking.py
 
-# pip install logging path inside build context
-ENV PIP_LOG=/build/pip-install.log
+# ============================================================================
+# ADVANCED BUILD CACHING SYSTEM (Enterprise-Grade)
+# ============================================================================
+# Use BuildKit cache mounts for apt, pip, and wheelhouse to enable true offline builds
+# This prevents re-downloading packages on every build
 
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    if [ "$BUILD_WHEELS" = "true" ]; then \
-        echo "Building wheels into wheelhouse..." && \
-        mkdir -p /build/wheelhouse && \
-        pip wheel --no-deps -r requirements-chainlit.txt -w /build/wheelhouse --log $PIP_LOG || true && \
-        tar -czf wheelhouse.tgz -C /build wheelhouse || true && \
-        echo "✓ Wheels built: $(ls -1 /build/wheelhouse/*.whl 2>/dev/null | wc -l)"; \
-    fi && \
-    if [ "$USE_WHEELHOUSE" = "true" ] && [ -d wheelhouse ] && [ "$(ls -A wheelhouse 2>/dev/null)" ]; then \
-        echo "Installing from wheelhouse (local) with pip log=$PIP_LOG..." && \
-        pip install --no-cache-dir --log $PIP_LOG --no-index --find-links=wheelhouse -r requirements-chainlit.txt; \
-    else \
-        echo "Installing CPU-only PyTorch from official index (with pip log=$PIP_LOG)..." && \
-        pip install --log $PIP_LOG --index-url https://download.pytorch.org/whl/cpu torch>=2.2.0 torchaudio>=2.2.0 && \
-        echo "Installing remaining dependencies from PyPI (with pip log=$PIP_LOG)..." && \
-        pip install --no-cache-dir --log $PIP_LOG -r requirements-chainlit.txt; \
-    fi && \
-    echo "✓ Dependencies installed: $(pip list | wc -l) packages" && \
-    echo "pip log saved to $PIP_LOG"
+# Cache apt packages between builds
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        curl \
+        libgomp1 \
+        procps \
+        && echo "✓ Build dependencies cached"
+
+# ============================================================================
+# TRUE OFFLINE BUILD SYSTEM - BuildKit Cache Integration
+# ============================================================================
+# This approach uses BuildKit cache mounts to persist wheels between builds
+# preventing repeated downloads and enabling true offline builds
+
+# Build wheels with persistent caching
+RUN --mount=type=cache,target=/root/.cache/pip,sharing=locked \
+    --mount=type=cache,target=/build/wheelhouse,sharing=locked \
+    pip install --upgrade pip setuptools wheel && \
+    pip wheel --no-deps -r requirements-chainlit.txt -w /build/wheelhouse --progress-bar off
+
+# Install from cached wheelhouse (no network access)
+RUN pip install --no-index --find-links=/build/wheelhouse -r requirements-chainlit.txt
 
 # ============================================================================
 # STAGE 2: RUNTIME - Minimal production image
@@ -71,8 +80,8 @@ RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
 FROM python:3.12-slim
 
 LABEL maintainer="Xoe-NovAi Team"
-LABEL version="0.1.4-stable-optimized"
-LABEL description="Xoe-NovAi Chainlit UI Service - Production Ready (FAISS Release)"
+LABEL version="0.1.5"
+LABEL description="Xoe-NovAi Chainlit UI Service - Voice-Enabled (v0.1.5)"
 
 # Install ONLY runtime essentials
 RUN apt-get update 2>&1 | tee /build/apt-update.log && \

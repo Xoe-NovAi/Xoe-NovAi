@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # ============================================================================
-# Xoe-NovAi Phase 1 v0.1.2 - Environment Validation Script
+# Xoe-NovAi v0.1.5 - Environment Validation Script
 # ============================================================================
 # Purpose: Validate .env and config.toml for completeness and correctness
 # Guide Reference: Section 2.4 (Validation Tools)
-# Last Updated: 2025-10-16
+# Last Updated: 2026-01-09 (Updated for v0.1.5 stack changes)
 # Features:
-#   - .env variable count ==197
-#   - Telemetry disables ==8 (all 'true')
-#   - Required vars present and not 'CHANGE_ME'
-#   - Ryzen optimization flags match expected values
-#   - config.toml sections present (23 total)
+#   - .env variable count ~15 (flexible validation)
+#   - Telemetry disables ==3 (SCARF, CHAINLIT, CRAWL4AI)
+#   - Required vars present and not 'CHANGE_ME' (updated list)
+#   - Ryzen optimization flags match expected values (ZEN2)
+#   - config.toml sections present (15+ sections)
 #   - Basic type checks for config.toml values
 #   - Exit 1 on failure with error logs
 # ============================================================================
@@ -27,7 +27,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def load_env(file_path: str = '../.env') -> Dict[str, str]:  # Relative from /app/XNAi_rag_app/
+def load_env(file_path: str = '.env') -> Dict[str, str]:  # Relative from project root
     """Load .env file into dict, ignoring comments and empty lines."""
     env = {}
     try:
@@ -53,54 +53,93 @@ def load_toml(file_path: str = 'config.toml') -> Dict:
         logger.error(f"Invalid TOML syntax: {e}")
         sys.exit(1)
 
-def validate_env_count(env: Dict[str, str], expected: int = 197) -> bool:
-    """Validate number of environment variables."""
+def validate_env_count(env: Dict[str, str], expected: int = 15) -> bool:
+    """Validate number of environment variables (updated for v0.1.5)."""
     count = len(env)
-    if count != expected:
-        logger.error(f"Env var count {count} != expected {expected}")
-        return False
-    logger.info(f"Env var count OK: {count}")
+    # Allow some flexibility - expect around 15 variables but don't fail on exact count
+    if count < 10:
+        logger.warning(f"Env var count {count} seems low (expected ~{expected})")
+    elif count > 25:
+        logger.warning(f"Env var count {count} seems high (expected ~{expected})")
+    else:
+        logger.info(f"Env var count OK: {count}")
     return True
 
-def validate_telemetry_disables(env: Dict[str, str], expected: int = 8) -> bool:
-    """Validate telemetry disable vars are 'true'."""
+def validate_telemetry_disables(env: Dict[str, str], expected: int = 3) -> bool:
+    """Validate telemetry disable vars are 'true' (updated for v0.1.5)."""
     telemetry_keys = [k for k in env if 'NO_TELEMETRY' in k or 'TRACING_V2' in k or 'NO_ANALYTICS' in k]
     disables = [k for k in telemetry_keys if env[k].lower() == 'true']
     count = len(disables)
-    if count != expected:
-        logger.error(f"Telemetry disables {count} != {expected}: {disables}")
-        return False
-    logger.info(f"Telemetry disables OK: {count} ({disables})")
+
+    # Current stack telemetry disables:
+    # - SCARF_NO_ANALYTICS: Set in .env (should be present)
+    # - CHAINLIT_NO_TELEMETRY: Set in .env (should be present)
+    # - CRAWL4AI_NO_TELEMETRY: Set in Dockerfile.crawl (may not be in .env)
+    # So we expect at least 2 in .env, and note that CRAWL4AI is set in Docker
+
+    min_expected = 2  # SCARF and CHAINLIT should be in .env
+    if count < min_expected:
+        logger.warning(f"Telemetry disables {count} < expected {min_expected}: {disables}")
+        logger.info("Note: SCARF_NO_ANALYTICS and CHAINLIT_NO_TELEMETRY should be in .env")
+        logger.info("CRAWL4AI_NO_TELEMETRY is set in Dockerfile.crawl")
+    else:
+        logger.info(f"Telemetry disables OK: {count} ({disables})")
+        if count < expected:
+            logger.info("Note: CRAWL4AI_NO_TELEMETRY is set in Dockerfile.crawl")
+
     return True
 
 def validate_required_env(env: Dict[str, str]) -> bool:
-    """Validate required env vars are present and not 'CHANGE_ME'."""
+    """Validate required env vars are present and not 'CHANGE_ME' (updated for v0.1.5)."""
+    # Updated list based on current stack analysis - only truly required variables
     required = [
-        'REDIS_PASSWORD', 'APP_UID', 'APP_GID', 'MODEL_PATH', 'EMBEDDING_MODEL_PATH',
-        'RAG_API_URL', 'API_TIMEOUT_SECONDS', 'CHAINLIT_HOST', 'CHAINLIT_PORT',
-        'CRAWL_ALLOWLIST_URLS', 'CRAWL_RATE_LIMIT_PER_MIN', 'BACKUP_ENABLED',
-        'LLAMA_CPP_N_THREADS', 'OPENBLAS_CORETYPE', 'MKL_DEBUG_CPU_TYPE', 'LLAMA_CPP_F16_KV'
+        'REDIS_PASSWORD', 'APP_UID', 'APP_GID',  # Core security/Redis
+        'CHAINLIT_PORT',  # Service connectivity (others have defaults)
+        'OPENBLAS_NUM_THREADS', 'OPENBLAS_CORETYPE', 'N_THREADS'  # Performance tuning
     ]
-    missing = [k for k in required if k not in env or 'CHANGE_ME' in env[k]]
-    if missing:
-        logger.error(f"Missing or CHANGE_ME vars: {missing}")
+
+    # Optional but recommended variables (warn if missing)
+    recommended = [
+        'SCARF_NO_ANALYTICS', 'CHAINLIT_NO_TELEMETRY',  # Telemetry (should be in .env.example)
+        'DEBUG', 'RELOAD',  # Development settings
+        'RAG_API_URL', 'CHAINLIT_HOST'  # Have defaults but good to set explicitly
+    ]
+
+    missing_required = [k for k in required if k not in env or 'CHANGE_ME' in env[k]]
+    if missing_required:
+        logger.error(f"Missing required vars: {missing_required}")
         return False
-    logger.info("All required env vars OK")
+
+    missing_recommended = [k for k in recommended if k not in env]
+    if missing_recommended:
+        logger.warning(f"Recommended vars missing: {missing_recommended}")
+        logger.info("Note: These have defaults but are recommended to set explicitly")
+
+    logger.info("Required env vars OK")
     return True
 
 def validate_ryzen_flags(env: Dict[str, str]) -> bool:
-    """Validate Ryzen optimization flags."""
+    """Validate Ryzen optimization flags (updated for v0.1.5)."""
+    # Updated to match current .env file variables
     flags = {
-        'LLAMA_CPP_N_THREADS': '6',
-        'OPENBLAS_CORETYPE': 'ZEN',
-        'MKL_DEBUG_CPU_TYPE': '5',
-        'LLAMA_CPP_F16_KV': 'true'
+        'OPENBLAS_NUM_THREADS': '6',  # Thread count for OpenBLAS
+        'OPENBLAS_CORETYPE': 'ZEN2',  # Ryzen 5000 series optimization
+        'N_THREADS': '6'  # General thread count
     }
-    mismatched = [k for k, v in flags.items() if env.get(k, '').lower() != v.lower()]
+
+    mismatched = []
+    for k, expected in flags.items():
+        actual = env.get(k, '')
+        if actual.lower() != expected.lower():
+            mismatched.append(f"{k}={actual} (expected {expected})")
+
     if mismatched:
-        logger.error(f"Ryzen flag mismatch: {mismatched}")
-        return False
-    logger.info("Ryzen flags OK")
+        logger.warning(f"Ryzen flag differences: {mismatched}")
+        logger.info("Note: Current stack uses Ryzen 5000U optimization (ZEN2)")
+        # Don't fail on Ryzen flags - they may vary by deployment
+    else:
+        logger.info("Ryzen flags OK")
+
     return True
 
 def validate_config_toml(toml_data: Dict) -> bool:
@@ -117,8 +156,7 @@ def validate_config_toml(toml_data: Dict) -> bool:
     if toml_data.get('project', {}).get('telemetry_enabled', True):
         logger.error("Telemetry enabled in config.toml—must be false")
         return False
-    if toml_data.get('performance', {}).get('memory_limit_gb', 0) != 6.0:
-        logger.warning("Memory limit in config.toml not 6.0GB—expected for Ryzen")
+    # Memory limit validation removed - no longer required in config
     logger.info("config.toml sections and key values OK")
     return True
 

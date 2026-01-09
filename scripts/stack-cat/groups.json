@@ -1,11 +1,11 @@
 {
   "default": {
-    "description": "Full core stack - Xoe-NovAi v0.1.3",
+    "description": "Full core stack - Xoe-NovAi v0.1.5 Voice Integration",
     "files": [
       "Dockerfile.api",
-      "Dockerfile.chainlit", 
+      "Dockerfile.chainlit",
       "Dockerfile.crawl",
-      "Dockerfile.cuaration_worker",
+      "Dockerfile.curation_worker",
       "docker-compose.yml",
       "requirements-api.txt",
       "requirements-chainlit.txt",
@@ -64,6 +64,20 @@
       "Dockerfile.crawl",
       "requirements-crawl.txt",
       "app/XNAi_rag_app/crawl.py"
+    ]
+  },
+  "voice": {
+    "description": "Voice interface and TTS/STT components (v0.1.5)",
+    "files": [
+      "requirements-chainlit.txt",
+      "app/XNAi_rag_app/chainlit_app_voice.py",
+      "app/XNAi_rag_app/voice_interface.py",
+      "app/XNAi_rag_app/voice_command_handler.py",
+      "app/XNAi_rag_app/chainlit_curator_interface.py",
+      "app/XNAi_rag_app/ingest_library.py",
+      "app/XNAi_rag_app/library_api_integrations.py",
+      "app/XNAi_rag_app/crawler_curation.py",
+      "app/XNAi_rag_app/curation_worker.py"
     ]
   }
 }

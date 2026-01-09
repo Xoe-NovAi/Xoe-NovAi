@@ -13,9 +13,9 @@
 # [metadata] - Stack Identity
 # ============================================================================
 [metadata]
-stack_version = "v0.1.4-stable"
-release_date = "2025-11-08"
-codename = "Polymath Foundation"
+stack_version = "v0.1.5"
+release_date = "2026-01-08"
+codename = "Voice Integration"
 description = "CPU-optimized local AI RAG stack with CrawlModule v0.1.7"
 architecture = "streaming-first, zero-telemetry, modular, library-curation"
 
@@ -366,3 +366,48 @@ log_sql_queries = false
 mock_external_calls = false
 dump_request_payloads = false
 dump_response_payloads = false
+
+# ============================================================================
+# [voice] - Voice Interface Configuration (v0.1.5)
+# ============================================================================
+[voice]
+enabled = true
+
+# Wake Word Detection
+wake_word = "hey nova"
+wake_word_enabled = true
+wake_word_sensitivity = 0.8
+
+# STT Configuration
+stt_provider = "faster_whisper"
+stt_device = "cpu"
+stt_compute_type = "float16"
+stt_beam_size = 5
+stt_timeout_seconds = 60
+vad_filter = true
+vad_min_silence_duration_ms = 500
+
+# TTS Configuration
+tts_provider = "piper_onnx"
+piper_model = "en_US-john-medium"
+tts_timeout_seconds = 30
+
+# Input Validation & Rate Limiting
+max_audio_size_bytes = 10485760  # 10MB
+max_audio_duration_seconds = 300
+rate_limit_per_minute = 10
+rate_limit_window_seconds = 60
+
+# Streaming Configuration
+streaming_enabled = true
+streaming_buffer_size = 4096
+chunk_size_ms = 100
+
+# Offline Mode
+offline_mode = true
+preload_models = false
+
+# Cache Settings
+enable_cache = true
+cache_ttl_seconds = 3600
+cache_max_entries = 1000

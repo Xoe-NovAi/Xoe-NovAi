@@ -241,6 +241,20 @@ echo "Generating detailed wheelhouse manifest..."
 echo "Creating compressed archive..."
 tar -czf "${OUTDIR}.tgz" -C "$(dirname "${OUTDIR}")" "$(basename "${OUTDIR}")"
 
+# Integrate with build tracking system
+echo "Integrating with build tracking system..."
+if [[ -f "scripts/build_tracking.py" ]]; then
+    echo "Running build tracking analysis..."
+    python3 scripts/build_tracking.py analyze-installation >> "${LOGFILE}" 2>&1 || {
+        echo "Warning: Build tracking analysis failed"
+    }
+    python3 scripts/build_tracking.py generate-report >> "${LOGFILE}" 2>&1 || {
+        echo "Warning: Build report generation failed"
+    }
+else
+    echo "Warning: Build tracking script not found"
+fi
+
 # Print summary
 echo
 echo "Wheelhouse Summary:"
@@ -253,5 +267,6 @@ echo "- Error log: ${OUTDIR}/build_errors.log"
 echo
 echo "To use this wheelhouse:"
 echo "1. Copy '${OUTDIR}' or '${OUTDIR}.tgz' into your Docker build context"
-echo "2. Build with OFFLINE=true"
-echo "3. Check MANIFEST.md for any issues that need attention"
+echo "2. Build with USE_WHEELHOUSE=true"
+echo "3. Run 'make build-analyze' to verify installation"
+echo "4. Check MANIFEST.md and build-report.json for any issues"

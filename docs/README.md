@@ -43,6 +43,8 @@ Quick starts, setup guides, migration instructions, and operational procedures.
 - [`quick-start.md`](howto/quick-start.md) - Get started in 5 minutes
 - [`docker-setup.md`](howto/docker-setup.md) - Docker deployment guide
 - [`voice-setup.md`](howto/voice-setup.md) - Voice interface setup
+- [`makefile-usage.md`](howto/makefile-usage.md) - Complete build system guide
+- [`github-protocol-guide.md`](howto/github-protocol-guide.md) - GitHub workflow guide
 
 **Use When:** You need to perform a specific task or set up a component.
 

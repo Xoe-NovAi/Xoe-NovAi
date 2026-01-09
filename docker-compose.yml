@@ -48,7 +48,7 @@ services:
       - /tmp:mode=1777,size=512m
 
   # ==========================================================================
-  # RAG SERVICE - FastAPI Backend with LLM/FAISS
+  # RAG SERVICE - FastAPI Backend with LLM/FAISS (Zero-Trust Security)
   # ==========================================================================
   rag:
     build:
@@ -57,6 +57,14 @@ services:
       args:
         BUILDKIT_INLINE_CACHE: 1
     container_name: xnai_rag_api
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
     volumes:
       # Configuration
       - ./config.toml:/config.toml:ro
@@ -126,7 +134,7 @@ services:
       - /tmp:mode=1777,size=512m
 
   # ==========================================================================
-  # UI SERVICE - Chainlit Frontend
+  # UI SERVICE - Chainlit Frontend (Zero-Trust Security)
   # ==========================================================================
   ui:
     build:
@@ -135,6 +143,14 @@ services:
       args:
         BUILDKIT_INLINE_CACHE: 1
     container_name: xnai_chainlit_ui
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
     volumes:
       # Configuration
       - ./config.toml:/config.toml:ro
